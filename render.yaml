@@ -13,7 +13,7 @@ services:
       - key: API_CORS_ORIGINS
         value: https://ai-customer-support-triage-response.vercel.app
       - key: CELERY_TASK_ALWAYS_EAGER
-        value: "false"
+        value: "true"
       - key: DATABASE_URL
         sync: false
       - key: REDIS_URL
@@ -36,7 +36,7 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: GOOGLE_REDIRECT_URI
-        value: https://ai-customer-support-triage-response-backend.onrender.com/v1/gmail/oauth/callback
+        value: https://ai-customer-support-triage-response.onrender.com/v1/gmail/oauth/callback
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
@@ -81,7 +81,7 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: GOOGLE_REDIRECT_URI
-        value: https://ai-customer-support-triage-response-backend.onrender.com/v1/gmail/oauth/callback
+        value: https://ai-customer-support-triage-response.onrender.com/v1/gmail/oauth/callback
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
