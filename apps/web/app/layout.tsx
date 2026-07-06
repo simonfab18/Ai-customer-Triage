@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Support Triage",
-  description: "AI-assisted customer support triage and response approval.",
+  title: "Customer Support Triage and Response",
+  description: "AI-assisted customer support triage, reply approval, and Gmail draft creation.",
 };
 
 export default function RootLayout({
@@ -17,4 +17,3 @@ export default function RootLayout({
     </html>
   );
 }
-

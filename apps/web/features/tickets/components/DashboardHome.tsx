@@ -103,7 +103,7 @@ export function DashboardHome() {
             <div className="mt-6 grid overflow-hidden rounded-lg border border-slate-200 sm:grid-cols-4">
               <StatCard label="Open tickets" value={metrics.active_tickets} />
               <StatCard label="Pending approval" value={suggestions.length} />
-              <StatCard label="Auto-triaged today" value={metrics.total_tickets} detail="Current MVP total" />
+              <StatCard label="Auto-triaged today" value={metrics.total_tickets} detail="Imported ticket total" />
               <StatCard label="Avg AI confidence" value="N/A" detail="Backend field needed" />
             </div>
           ) : null}
