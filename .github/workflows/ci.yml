@@ -36,6 +36,9 @@ jobs:
         run: alembic upgrade head
 
       - name: Run backend tests
+        env:
+          ENCRYPTION_KEY: ci-only-not-secret
+          AUTH_ALLOW_UNVERIFIED_JWT: "true"
         run: pytest
 
   frontend:
@@ -63,6 +66,10 @@ jobs:
         run: pnpm run typecheck:web
 
       - name: Build frontend
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+          NEXT_PUBLIC_SUPABASE_URL: https://gvpftpnyqeancxugyxqf.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_zwWWL_oXWiK41Xj_e0-AtA_R0gspHmC
         run: pnpm run build:web
 
   docker:
