@@ -1,0 +1,95 @@
+services:
+  - type: web
+    name: ai-customer-support-triage-response-backend
+    env: docker
+    rootDir: apps/api
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: staging
+      - key: DEBUG
+        value: "false"
+      - key: API_CORS_ORIGINS
+        value: https://ai-customer-support-triage-response.vercel.app
+      - key: CELERY_TASK_ALWAYS_EAGER
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: support-triage-redis
+          property: connectionString
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: SUPABASE_URL
+        value: https://gvpftpnyqeancxugyxqf.supabase.co
+      - key: SUPABASE_PUBLISHABLE_KEY
+        value: sb_publishable_zwWWL_oXWiK41Xj_e0-AtA_R0gspHmC
+      - key: SUPABASE_JWKS_URL
+        value: https://gvpftpnyqeancxugyxqf.supabase.co/auth/v1/.well-known/jwks.json
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        value: https://ai-customer-support-triage-response-backend.onrender.com/v1/gmail/oauth/callback
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
+      - key: AUTH_ALLOW_UNVERIFIED_JWT
+        value: "false"
+
+  - type: worker
+    name: ai-customer-support-triage-response-worker
+    env: docker
+    rootDir: apps/api
+    dockerfilePath: ./Dockerfile
+    dockerCommand: celery -A app.worker.celery_app.celery_app worker --loglevel=info
+    envVars:
+      - key: APP_ENV
+        value: staging
+      - key: DEBUG
+        value: "false"
+      - key: API_CORS_ORIGINS
+        value: https://ai-customer-support-triage-response.vercel.app
+      - key: CELERY_TASK_ALWAYS_EAGER
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: support-triage-redis
+          property: connectionString
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: SUPABASE_URL
+        value: https://gvpftpnyqeancxugyxqf.supabase.co
+      - key: SUPABASE_PUBLISHABLE_KEY
+        value: sb_publishable_zwWWL_oXWiK41Xj_e0-AtA_R0gspHmC
+      - key: SUPABASE_JWKS_URL
+        value: https://gvpftpnyqeancxugyxqf.supabase.co/auth/v1/.well-known/jwks.json
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        value: https://ai-customer-support-triage-response-backend.onrender.com/v1/gmail/oauth/callback
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
+      - key: AUTH_ALLOW_UNVERIFIED_JWT
+        value: "false"
+
+  - type: redis
+    name: support-triage-redis
+    ipAllowList: []
+
