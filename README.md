@@ -11,38 +11,52 @@ Monorepo for the MVP application.
 
 Copy the environment templates:
 
-```bash
-cp .env.example .env
-cp apps/web/.env.example apps/web/.env.local
-cp apps/api/.env.example apps/api/.env
+```powershell
+Copy-Item apps/api/.env.example apps/api/.env
+Copy-Item apps/web/.env.example apps/web/.env.local
 ```
 
 Install dependencies:
 
-```bash
+```powershell
 npm install
 cd apps/api
-python -m venv .venv
-source .venv/bin/activate
+py -3.13 -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 ```
 
 Run with Docker Compose:
 
-```bash
+```powershell
 docker compose up --build
 ```
 
 Run locally without Docker:
 
-```bash
-npm run dev --workspace apps/web
+```powershell
+pnpm run dev:web
 cd apps/api
-uvicorn app.main:app --reload
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
+
+## Database Migrations
+
+New shared or production databases should use Alembic migrations:
+
+```powershell
+cd apps/api
+alembic upgrade head
+```
+
+Local SQLite development still starts automatically, but Supabase/Postgres environments should be migrated explicitly.
 
 ## Health Checks
 
 - API: `GET http://localhost:8000/health`
 - API status: `GET http://localhost:8000/v1/status`
 
+## Docs
+
+- `docs/ENVIRONMENT.md`: local and production environment variables.
+- `docs/DEPLOYMENT.md`: deployment layout, commands, and production checklist.

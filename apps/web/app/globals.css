@@ -6,6 +6,9 @@
   color-scheme: light;
   background: #f8fafc;
   color: #0f172a;
+  --font-display: "Space Grotesk";
+  --font-sans: "Inter";
+  --font-mono: "JetBrains Mono";
 }
 
 * {
@@ -15,6 +18,7 @@
 body {
   margin: 0;
   min-height: 100vh;
+  background: #f8fafc;
   font-family:
     Inter,
     ui-sans-serif,
@@ -30,3 +34,6 @@ a {
   text-decoration: none;
 }
 
+::selection {
+  background: rgba(13, 148, 136, 0.16);
+}

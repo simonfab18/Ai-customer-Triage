@@ -1,0 +1,273 @@
+import base64
+from datetime import UTC, datetime
+from email.message import EmailMessage
+
+from fastapi import HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.api.deps import AuthenticatedUser
+from app.core.encryption import decrypt_secret
+from app.integrations.gmail.client import create_gmail_draft, refresh_gmail_access_token
+from app.models.ai_triage_result import AITriageResult
+from app.models.gmail_connection import GmailConnection
+from app.models.gmail_draft import GmailDraft
+from app.models.reply_suggestion import (
+    ReplySuggestion,
+    ReplySuggestionCreatedBy,
+    ReplySuggestionStatus,
+)
+from app.models.ticket import TicketStatus
+from app.schemas.reply_suggestion import ReplySuggestionCreate, ReplySuggestionUpdate
+from app.services.audit_log_service import create_audit_log
+from app.services.ticket_service import get_ticket_or_404, write_ticket_event
+
+
+def list_reply_suggestions(
+    db: Session,
+    organization_id: str,
+    ticket_id: str,
+    actor: AuthenticatedUser,
+) -> list[ReplySuggestion]:
+    get_ticket_or_404(db, organization_id, ticket_id, actor)
+    return list(
+        db.scalars(
+            select(ReplySuggestion)
+            .where(ReplySuggestion.organization_id == organization_id, ReplySuggestion.ticket_id == ticket_id)
+            .order_by(ReplySuggestion.created_at.desc())
+        )
+    )
+
+
+def create_agent_reply_suggestion(
+    db: Session,
+    organization_id: str,
+    ticket_id: str,
+    actor: AuthenticatedUser,
+    payload: ReplySuggestionCreate,
+) -> ReplySuggestion:
+    ticket = get_ticket_or_404(db, organization_id, ticket_id, actor)
+    suggestion = ReplySuggestion(
+        organization_id=organization_id,
+        ticket_id=ticket.id,
+        gmail_connection_id=ticket.gmail_connection_id,
+        body=payload.body,
+        status=ReplySuggestionStatus.SUGGESTED.value,
+        created_by=ReplySuggestionCreatedBy.AGENT.value,
+        created_by_user_id=actor.id,
+    )
+    db.add(suggestion)
+    write_ticket_event(
+        db,
+        ticket,
+        actor,
+        "ticket.reply_suggestion_created",
+        {"reply_suggestion_id": suggestion.id, "created_by": suggestion.created_by},
+    )
+    db.commit()
+    db.refresh(suggestion)
+    return suggestion
+
+
+def update_reply_suggestion(
+    db: Session,
+    organization_id: str,
+    suggestion_id: str,
+    actor: AuthenticatedUser,
+    payload: ReplySuggestionUpdate,
+) -> ReplySuggestion:
+    suggestion = get_reply_suggestion_or_404(db, organization_id, suggestion_id)
+    ticket = get_ticket_or_404(db, organization_id, suggestion.ticket_id, actor)
+    if suggestion.status in {ReplySuggestionStatus.APPROVED.value, ReplySuggestionStatus.REJECTED.value, ReplySuggestionStatus.DRAFT_CREATED.value}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reply suggestion is already finalized")
+
+    suggestion.edited_body = payload.edited_body
+    suggestion.status = ReplySuggestionStatus.EDITED.value
+    write_ticket_event(
+        db,
+        ticket,
+        actor,
+        "ticket.reply_suggestion_edited",
+        {"reply_suggestion_id": suggestion.id},
+    )
+    db.commit()
+    db.refresh(suggestion)
+    return suggestion
+
+
+def approve_reply_suggestion(
+    db: Session,
+    organization_id: str,
+    suggestion_id: str,
+    actor: AuthenticatedUser,
+) -> ReplySuggestion:
+    suggestion = get_reply_suggestion_or_404(db, organization_id, suggestion_id)
+    ticket = get_ticket_or_404(db, organization_id, suggestion.ticket_id, actor)
+    if suggestion.status == ReplySuggestionStatus.REJECTED.value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Rejected suggestion cannot be approved")
+    if suggestion.status == ReplySuggestionStatus.DRAFT_CREATED.value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reply suggestion already has a Gmail draft")
+
+    suggestion.status = ReplySuggestionStatus.APPROVED.value
+    suggestion.approved_by_user_id = actor.id
+    suggestion.approved_at = datetime.now(UTC)
+    write_ticket_event(
+        db,
+        ticket,
+        actor,
+        "ticket.reply_suggestion_approved",
+        {"reply_suggestion_id": suggestion.id},
+    )
+    create_audit_log(
+        db,
+        organization_id=organization_id,
+        actor_user_id=actor.id,
+        action="reply_suggestion.approved",
+        resource_type="reply_suggestion",
+        resource_id=suggestion.id,
+        metadata={"ticket_id": suggestion.ticket_id, "ai_triage_result_id": suggestion.ai_triage_result_id},
+    )
+    db.commit()
+    db.refresh(suggestion)
+    return suggestion
+
+
+def reject_reply_suggestion(
+    db: Session,
+    organization_id: str,
+    suggestion_id: str,
+    actor: AuthenticatedUser,
+) -> ReplySuggestion:
+    suggestion = get_reply_suggestion_or_404(db, organization_id, suggestion_id)
+    ticket = get_ticket_or_404(db, organization_id, suggestion.ticket_id, actor)
+    if suggestion.status == ReplySuggestionStatus.DRAFT_CREATED.value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Draft-created suggestion cannot be rejected")
+
+    suggestion.status = ReplySuggestionStatus.REJECTED.value
+    write_ticket_event(
+        db,
+        ticket,
+        actor,
+        "ticket.reply_suggestion_rejected",
+        {"reply_suggestion_id": suggestion.id},
+    )
+    db.commit()
+    db.refresh(suggestion)
+    return suggestion
+
+
+async def create_gmail_draft_from_reply_suggestion(
+    db: Session,
+    organization_id: str,
+    suggestion_id: str,
+    actor: AuthenticatedUser,
+) -> tuple[ReplySuggestion, GmailDraft]:
+    suggestion = get_reply_suggestion_or_404(db, organization_id, suggestion_id)
+    ticket = get_ticket_or_404(db, organization_id, suggestion.ticket_id, actor)
+    if suggestion.status == ReplySuggestionStatus.REJECTED.value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Rejected suggestion cannot create Gmail draft")
+    if suggestion.status != ReplySuggestionStatus.APPROVED.value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reply suggestion must be approved first")
+
+    existing_draft = db.scalar(
+        select(GmailDraft).where(GmailDraft.organization_id == organization_id, GmailDraft.ticket_id == ticket.id)
+    )
+    if existing_draft is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Gmail draft already exists for this ticket")
+    if not ticket.gmail_connection_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ticket is not linked to a Gmail connection")
+
+    connection = db.get(GmailConnection, ticket.gmail_connection_id)
+    if connection is None or connection.organization_id != organization_id or connection.status != "active":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Active Gmail connection not found")
+
+    refresh_token = decrypt_secret(connection.encrypted_refresh_token)
+    access_token, expires_at = await refresh_gmail_access_token(refresh_token)
+    raw_message = build_reply_raw_message(
+        to_email=ticket.customer.email,
+        subject=ticket.subject,
+        body=suggestion.edited_body or suggestion.body,
+    )
+    try:
+        draft = await create_gmail_draft(access_token, raw_message, ticket.gmail_thread_id)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Gmail draft creation failed; suggestion remains approved",
+        ) from exc
+    draft_id = draft.get("id")
+    if not draft_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Gmail did not return a draft id")
+
+    gmail_draft = GmailDraft(
+        organization_id=organization_id,
+        ticket_id=ticket.id,
+        reply_suggestion_id=suggestion.id,
+        gmail_draft_id=draft_id,
+        gmail_thread_id=ticket.gmail_thread_id,
+        created_by_user_id=actor.id,
+    )
+    db.add(gmail_draft)
+    connection.access_token_expires_at = expires_at
+    suggestion.status = ReplySuggestionStatus.DRAFT_CREATED.value
+    suggestion.gmail_draft_id = draft_id
+    ticket.status = TicketStatus.DRAFT_CREATED.value
+    write_ticket_event(
+        db,
+        ticket,
+        actor,
+        "ticket.reply_draft_created",
+        {"reply_suggestion_id": suggestion.id, "gmail_draft_id": draft_id},
+    )
+    create_audit_log(
+        db,
+        organization_id=organization_id,
+        actor_user_id=actor.id,
+        action="gmail.draft.created",
+        resource_type="gmail_draft",
+        resource_id=gmail_draft.id,
+        metadata={
+            "ticket_id": ticket.id,
+            "reply_suggestion_id": suggestion.id,
+            "gmail_draft_id": draft_id,
+            "gmail_thread_id": ticket.gmail_thread_id,
+        },
+    )
+    db.commit()
+    db.refresh(suggestion)
+    db.refresh(gmail_draft)
+    return suggestion, gmail_draft
+
+
+def build_reply_raw_message(to_email: str, subject: str, body: str) -> str:
+    message = EmailMessage()
+    message["To"] = to_email
+    message["Subject"] = subject if subject.lower().startswith("re:") else f"Re: {subject}"
+    message.set_content(body)
+    return base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")
+
+
+def create_ai_reply_suggestion_from_triage(
+    db: Session,
+    ticket_id: str,
+    result: AITriageResult,
+    gmail_connection_id: str | None,
+) -> ReplySuggestion:
+    suggestion = ReplySuggestion(
+        organization_id=result.organization_id,
+        ticket_id=ticket_id,
+        ai_triage_result_id=result.id,
+        gmail_connection_id=gmail_connection_id,
+        body=result.draft_reply,
+        status=ReplySuggestionStatus.SUGGESTED.value,
+        created_by=ReplySuggestionCreatedBy.AI.value,
+    )
+    db.add(suggestion)
+    return suggestion
+
+
+def get_reply_suggestion_or_404(db: Session, organization_id: str, suggestion_id: str) -> ReplySuggestion:
+    suggestion = db.get(ReplySuggestion, suggestion_id)
+    if suggestion is None or suggestion.organization_id != organization_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reply suggestion not found")
+    return suggestion

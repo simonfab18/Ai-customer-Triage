@@ -5,6 +5,8 @@ out/
 npm-debug.log*
 
 # Python
+*.db
+*.db-*
 __pycache__/
 *.py[cod]
 .pytest_cache/

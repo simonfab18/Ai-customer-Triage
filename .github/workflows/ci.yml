@@ -25,6 +25,16 @@ jobs:
       - name: Install backend dependencies
         run: pip install -e ".[dev]"
 
+      - name: Lint backend
+        run: ruff check app tests alembic
+
+      - name: Test database migrations
+        env:
+          DATABASE_URL: sqlite:///./ci_migration.db
+          ENCRYPTION_KEY: ci-only-not-secret
+          AUTH_ALLOW_UNVERIFIED_JWT: "true"
+        run: alembic upgrade head
+
       - name: Run backend tests
         run: pytest
 
@@ -38,12 +48,12 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 11
+          version: 9.15.9
 
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: pnpm
 
       - name: Install frontend dependencies
@@ -54,3 +64,18 @@ jobs:
 
       - name: Build frontend
         run: pnpm run build:web
+
+  docker:
+    name: Docker Compose
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create local env files from templates
+        run: |
+          cp apps/api/.env.example apps/api/.env
+          cp apps/web/.env.example apps/web/.env.local
+
+      - name: Validate Docker Compose config
+        run: docker compose config --quiet

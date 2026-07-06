@@ -1,0 +1,164 @@
+import pytest
+from fastapi.testclient import TestClient
+from pydantic import ValidationError
+
+from app.models.ticket import TicketCategory, TicketPriority, TicketSentiment
+from app.schemas.ai import TriageOutput
+
+
+@pytest.fixture
+def ticket(client: TestClient, create_org) -> tuple[dict, dict]:
+    organization = create_org()
+    response = client.post(
+        f"/v1/orgs/{organization['id']}/tickets",
+        json={
+            "customer_email": "customer@example.com",
+            "customer_name": "Casey Customer",
+            "subject": "I need a refund for a broken item",
+            "message_text": "The item arrived broken and I want a refund please.",
+        },
+    )
+    assert response.status_code == 201
+    return organization, response.json()
+
+
+@pytest.mark.asyncio
+async def test_triage_ticket_stores_result_updates_ticket_and_writes_event(
+    client: TestClient,
+    ticket: tuple[dict, dict],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    organization, created_ticket = ticket
+
+    async def fake_classify(prompt: str):
+        assert "I need a refund" in prompt
+        return (
+            TriageOutput(
+                category=TicketCategory.REFUND,
+                priority=TicketPriority.HIGH,
+                sentiment=TicketSentiment.NEGATIVE,
+                summary="Customer received a broken item and requests a refund.",
+                suggested_action="Review order details and approve a refund if eligible.",
+                draft_reply="Hi Casey, thanks for contacting us. Best regards, Customer Support Team",
+                confidence_score=91,
+                reasoning="Clear customer intent and urgency signals.",
+                requires_human_review=False,
+            ),
+            {"model": "gemini-test", "output_text": "{}"},
+        )
+
+    monkeypatch.setattr("app.services.ai_triage_service.classify_ticket_with_gemini", fake_classify)
+
+    response = client.post(f"/v1/orgs/{organization['id']}/tickets/{created_ticket['id']}/triage")
+
+    assert response.status_code == 201
+    result = response.json()
+    assert result["category"] == "refund"
+    assert result["priority"] == "high"
+    assert result["sentiment"] == "negative"
+    assert result["requires_human_review"] is True
+
+    ticket_response = client.get(f"/v1/orgs/{organization['id']}/tickets/{created_ticket['id']}")
+    updated_ticket = ticket_response.json()
+    assert updated_ticket["category"] == "refund"
+    assert updated_ticket["priority"] == "high"
+    assert updated_ticket["sentiment"] == "negative"
+
+    events_response = client.get(f"/v1/orgs/{organization['id']}/tickets/{created_ticket['id']}/events")
+    event_types = [event["event_type"] for event in events_response.json()]
+    assert "ticket.ai_triaged" in event_types
+
+
+def test_list_ticket_triage_results(client: TestClient, create_org, monkeypatch: pytest.MonkeyPatch) -> None:
+    organization = create_org()
+    ticket_response = client.post(
+        f"/v1/orgs/{organization['id']}/tickets",
+        json={
+            "customer_email": "shopper@example.com",
+            "customer_name": "Casey Customer",
+            "subject": "What colors does this shirt come in?",
+            "message_text": "Can you tell me which colors are available for this shirt?",
+        },
+    )
+    assert ticket_response.status_code == 201
+    created_ticket = ticket_response.json()
+
+    async def fake_classify(prompt: str):
+        return (
+            TriageOutput(
+                category=TicketCategory.PRODUCT_QUESTION,
+                priority=TicketPriority.LOW,
+                sentiment=TicketSentiment.NEUTRAL,
+                summary="Customer asks a product question.",
+                suggested_action="Answer the product question.",
+                draft_reply="Hi Casey, here is the answer. Best regards, Customer Support Team",
+                confidence_score=91,
+                reasoning="Clear customer intent and urgency signals.",
+                requires_human_review=False,
+            ),
+            {"model": "gemini-test", "output_text": "{}"},
+        )
+
+    monkeypatch.setattr("app.services.ai_triage_service.classify_ticket_with_gemini", fake_classify)
+
+    create_response = client.post(f"/v1/orgs/{organization['id']}/tickets/{created_ticket['id']}/triage")
+    assert create_response.status_code == 201
+
+    list_response = client.get(f"/v1/orgs/{organization['id']}/tickets/{created_ticket['id']}/triage")
+
+    assert list_response.status_code == 200
+    results = list_response.json()
+    assert len(results) == 1
+    assert results[0]["summary"] == "Customer asks a product question."
+    assert results[0]["requires_human_review"] is False
+
+
+def test_triage_requires_organization_membership(
+    client: TestClient,
+    ticket: tuple[dict, dict],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    organization, created_ticket = ticket
+    client.current_user["id"] = "not-a-member"
+
+    async def fake_classify(prompt: str):
+        raise AssertionError("Gemini should not be called without membership")
+
+    monkeypatch.setattr("app.services.ai_triage_service.classify_ticket_with_gemini", fake_classify)
+
+    response = client.post(f"/v1/orgs/{organization['id']}/tickets/{created_ticket['id']}/triage")
+
+    assert response.status_code == 403
+
+
+
+def test_triage_output_requires_confidence_and_reasoning() -> None:
+    with pytest.raises(ValidationError):
+        TriageOutput.model_validate(
+            {
+                "category": "refund",
+                "priority": "high",
+                "sentiment": "negative",
+                "summary": "Customer needs help.",
+                "suggested_action": "Review the case.",
+                "draft_reply": "Thanks for contacting us.",
+                "requires_human_review": True,
+            }
+        )
+
+
+def test_triage_output_rejects_invalid_confidence_score() -> None:
+    with pytest.raises(ValidationError):
+        TriageOutput.model_validate(
+            {
+                "category": "refund",
+                "priority": "high",
+                "sentiment": "negative",
+                "summary": "Customer needs help.",
+                "suggested_action": "Review the case.",
+                "draft_reply": "Thanks for contacting us.",
+                "confidence_score": 101,
+                "reasoning": "Clear refund request.",
+                "requires_human_review": True,
+            }
+        )

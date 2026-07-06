@@ -1,0 +1,13 @@
+﻿.git
+**/__pycache__
+**/.pytest_cache
+**/.venv
+**/node_modules
+**/.next
+**/tsconfig.tsbuildinfo
+apps/api/support_triage.db
+.env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
