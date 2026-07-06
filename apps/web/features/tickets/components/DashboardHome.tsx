@@ -95,12 +95,12 @@ export function DashboardHome() {
   return (
     <div className="space-y-6">
       <section className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
-        <div className="rounded-lg border border-slate-200 bg-white p-6">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/5 sm:p-6">
           <p className="font-mono text-xs uppercase tracking-wide text-slate-500">Today</p>
-          <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight text-slate-900">Good to see you. The queue is sorted by severity.</h2>
-          <p className="mt-3 max-w-2xl text-slate-600">Critical and high-priority tickets rise first, AI suggestions stay human-approved, and Gmail drafts are only created after approval.</p>
+          <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight text-slate-900">Good to see you. Your support queue is sorted by severity.</h2>
+          <p className="mt-3 max-w-2xl text-slate-600">Critical and high-priority tickets rise first, AI suggestions stay human-approved, and Gmail drafts are created only after an agent approves the reply.</p>
           {metrics ? (
-            <div className="mt-6 grid overflow-hidden rounded-lg border border-slate-200 sm:grid-cols-4">
+            <div className="mt-6 grid overflow-hidden rounded-lg border border-slate-200 bg-white sm:grid-cols-2 lg:grid-cols-4">
               <StatCard label="Open tickets" value={metrics.active_tickets} />
               <StatCard label="Pending approval" value={suggestions.length} />
               <StatCard label="Auto-triaged today" value={metrics.total_tickets} detail="Imported ticket total" />
@@ -112,7 +112,7 @@ export function DashboardHome() {
       </section>
 
       {!dismissed ? (
-        <section className="rounded-lg border border-slate-200 bg-white p-5">
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="font-display text-lg font-semibold">Pilot setup checklist</h2>
@@ -125,7 +125,7 @@ export function DashboardHome() {
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-4">
             {steps.map((step) => (
-              <Link key={step.label} href={step.href} className="rounded-md border border-slate-200 p-3 text-sm hover:border-slate-300">
+              <Link key={step.label} href={step.href} className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm transition hover:border-slate-300 hover:bg-white">
                 <span className={step.done ? "text-teal-700" : "text-slate-500"}>{step.done ? "Done" : "Next"}</span>
                 <span className="mt-1 block font-medium text-slate-900">{step.label}</span>
               </Link>
@@ -135,7 +135,7 @@ export function DashboardHome() {
       ) : null}
 
       <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
-        <div className="rounded-lg border border-slate-200 bg-white">
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm shadow-slate-900/5">
           <div className="border-b border-slate-200 px-5 py-4">
             <h2 className="font-display text-lg font-semibold">Needs approval</h2>
           </div>
@@ -153,7 +153,7 @@ export function DashboardHome() {
           )}
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-white">
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm shadow-slate-900/5">
           <div className="border-b border-slate-200 px-5 py-4">
             <h2 className="font-display text-lg font-semibold">Latest active tickets</h2>
           </div>
