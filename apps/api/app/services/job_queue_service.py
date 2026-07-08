@@ -1,4 +1,4 @@
-from fastapi import HTTPException, status
+﻿from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -10,6 +10,7 @@ from app.models.ticket import Ticket, TicketTriageStatus
 from app.services.ai_triage_service import PROMPT_VERSION, SCHEMA_VERSION
 from app.services.email_import_service import create_gmail_import_job
 from app.services.gmail_history_sync_service import create_history_sync_event, list_stale_connections
+from app.services.operations_service import mark_job_failed
 from app.services.workspace_settings_service import get_or_create_workspace_settings
 from app.worker.tasks import history_sync_gmail_connection_task, sync_gmail_connection_task
 
@@ -33,8 +34,7 @@ def enqueue_gmail_import(
         )
         db.refresh(job)
     except Exception as exc:
-        job.status = "failed"
-        job.error_message = f"Could not enqueue Gmail import job: {exc}"
+        mark_job_failed(job, RuntimeError(f"Could not enqueue Gmail import job: {exc}"))
         db.commit()
         db.refresh(job)
         raise HTTPException(
@@ -82,7 +82,11 @@ def enqueue_ticket_triage(
     job = JobRun(
         organization_id=organization_id,
         job_type="ai_triage",
+        queue_name="ai_triage",
         status=JobRunStatus.QUEUED.value,
+        correlation_id=f"ai-triage-{ticket_id}",
+        related_resource_type="ticket",
+        related_resource_id=ticket_id,
         job_metadata={
             "ticket_id": ticket_id,
             "requested_by_user_id": actor.id,
@@ -104,9 +108,7 @@ def enqueue_ticket_triage(
 
         triage_ticket_task.delay(job.id)
     except Exception as exc:
-        job.status = JobRunStatus.FAILED.value
-        job.error_message = f"Could not enqueue AI triage job: {exc}"
-        job.finished_at = None
+        mark_job_failed(job, RuntimeError(f"Could not enqueue AI triage job: {exc}"))
         ticket.triage_status = TicketTriageStatus.FAILED.value
         ticket.active_triage_job_id = None
         ticket.triage_error_message = job.error_message

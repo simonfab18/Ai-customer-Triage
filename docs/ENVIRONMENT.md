@@ -1,4 +1,4 @@
-# Environment Configuration
+﻿# Environment Configuration
 
 Use the checked-in `.env.example` files as templates only. Real secrets stay in local `.env` files or deployment secret stores.
 
@@ -96,6 +96,7 @@ Required in staging and production:
 - `GEMINI_API_KEY`, `GEMINI_MODEL`.
 - `FRONTEND_ORIGIN`, `API_CORS_ORIGINS`.
 - `WORKER_CONCURRENCY`, `SYNC_FALLBACK_INTERVAL_MINUTES`, `WATCH_RENEWAL_SCHEDULE`.
+- `RELEASE_VERSION`, `OPERATIONS_ALERT_OWNER`.
 
 Forbidden in staging and production:
 
@@ -106,7 +107,16 @@ Forbidden in staging and production:
 - SQLite `DATABASE_URL`
 - Development encryption keys
 
-`ERROR_TRACKING_DSN` is optional until the observability milestone, but it is included in the settings model so staging and production can configure it without code changes.
+M5 operations and observability settings:
+
+- `SERVICE_NAME`: log service label, usually `api` or `worker`.
+- `RELEASE_VERSION`: release identifier emitted in status responses and logs.
+- `OPERATIONS_ALERT_OWNER`: owner label included on failed jobs.
+- `OPERATIONS_INTERNAL_TOKEN`: optional token for internal system-wide operations endpoints.
+- `OPERATIONS_RUNBOOK_BASE_URL`: optional base URL used to populate job runbook links.
+- `OPERATIONS_FAILURE_ALERT_THRESHOLD`: repeated-failure threshold for alerting policy.
+
+`ERROR_TRACKING_DSN` remains optional until an external error tracking provider is connected, but the app captures API and worker exception context in structured logs now.
 
 ## Migration validation
 

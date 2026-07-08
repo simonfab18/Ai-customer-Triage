@@ -1,10 +1,10 @@
-# Project Plan
+﻿# Project Plan
 
 ## Current Stage
 
 The project is past the initial MVP foundation. The app now has a Next.js frontend, FastAPI backend, Supabase-backed PostgreSQL database, Supabase Auth, Gmail OAuth, Gmail import, AI triage with Gemini, reply approvals, Gmail draft creation, dashboard views, role-aware navigation, and local development servers.
 
-Core workflow polish is now implemented locally. The next major product improvement is M5: operations and observability, which will make failures visible, retryable, and alertable.
+Operations and observability is now implemented locally. The next major production milestone is M6: security and tenant hardening, which will deepen authorization coverage, rate limits, and credential lifecycle controls.
 
 ## Completed Milestones
 
@@ -129,6 +129,15 @@ Core workflow polish is now implemented locally. The next major product improvem
 - Closed tickets cannot create Gmail drafts.
 - Ticket list endpoints now support limit and offset pagination.
 
+### Production M5: Operations and Observability
+
+- Expanded job-run tracking with queue, attempts, timing, related resources, correlation IDs, retry eligibility, error classification, alert owner, and runbook metadata.
+- Added owner/admin operations endpoints for recent workspace failures, job detail, safe retry, and Gmail sync health.
+- Added a token-protected internal operations endpoint for system-wide failed jobs.
+- Added structured JSON request and worker logging with safe request/job/resource context.
+- Added sanitized error handling so tokens, authorization headers, email bodies, and prompts are not written to normal logs.
+- Added `/health/live`, `/health/ready`, and richer `/v1/status` dependency reporting.
+- Added tests for operations access, retry behavior, sync-health redaction, and health/status checks.
 ### Product UI Pass
 
 - Added modern SaaS-style landing page.
@@ -137,32 +146,31 @@ Core workflow polish is now implemented locally. The next major product improvem
 - Added responsive layout direction.
 - Added reusable product UI components for badges, cards, queue rows, and app navigation.
 
-## Next Recommended Milestone: M5 Operations and Observability
+## Next Recommended Milestone: M6 Security and Tenant Hardening
 
 ### Goal
 
-Operational failures should be visible, traceable, retryable, and alertable without relying on ad hoc log inspection.
+Production data boundaries, credentials, authorization rules, and abuse controls should be hardened before a real pilot inbox.
 
 ### Recommended Production Design
 
-- Track job runs with attempts, timing, related resources, and sanitized errors.
-- Add structured request and worker logging with correlation IDs.
-- Surface recent failures to owner/admin users and internal operators.
-- Define retry eligibility for Gmail, Gemini, Redis, and database failures.
-- Add health/readiness signals for API, worker, queue, and dependencies.
+- Add an authorization test matrix for protected organization, Gmail, ticket, triage, approval, draft, team, audit, and operations endpoints.
+- Add rate limits for provider-facing and authentication-adjacent actions.
+- Document secret rotation, token lifecycle, reauthorization, and data export/deletion recovery paths.
+- Add redaction coverage and negative cross-organization access tests.
 
 ### Backend Work
 
-- Expand job-run model and retry metadata where needed.
-- Add operations/status endpoints for recent failed jobs and sync health.
-- Add structured logging context and error classification.
-- Add tests for retryable and terminal failure states.
+- Add missing role allow/deny tests across protected endpoints.
+- Add per-user and per-organization rate limit enforcement for sensitive actions.
+- Harden secret/token handling documentation and failure behavior.
+- Add tests for cross-organization denial and abuse controls.
 
 ### Frontend Work
 
-- Add owner/admin operational status surfaces.
-- Show retryable failures with clear next actions.
-- Avoid exposing sensitive provider or tenant internals.
+- Show safe denial/error states for unauthorized or rate-limited actions.
+- Avoid exposing sensitive tenant/provider internals in UI responses.
+- Keep operations UI work separate from backend security hardening unless explicitly scoped.
 ## Later Milestones
 
 ### Knowledge and Automation
@@ -188,4 +196,3 @@ Operational failures should be visible, traceable, retryable, and alertable with
 - Confirm deployed CORS origins.
 - Confirm Render worker and Redis are running.
 - Run full end-to-end staging test.
-

@@ -1,4 +1,4 @@
-# Production Readiness Plan
+﻿# Production Readiness Plan
 
 **Product:** AI Customer Support Triage and Response System  
 **Working product name:** Sift  
@@ -105,7 +105,7 @@ Do not block the first launch on:
 1. **Human approval remains mandatory.** AI may recommend and draft, but it must not send a customer reply automatically in the first production version.
 2. **Every external event must be idempotent.** Duplicate Gmail and Pub/Sub events must not create duplicate tickets, triage results, or drafts.
 3. **A push notification is a signal, not the source of truth.** Gmail history is the source used to discover mailbox changes.
-4. **The UI must expose operational truth.** Do not show “live” or “healthy” unless the backend can verify it.
+4. **The UI must expose operational truth.** Do not show â€œliveâ€ or â€œhealthyâ€ unless the backend can verify it.
 5. **Organization isolation is enforced in the backend.** Frontend filtering is never a security boundary.
 6. **Background work must be retryable.** Network, Gmail, Gemini, Redis, and database failures must have defined retry behavior.
 7. **Manual controls stay available.** Keep manual Sync, Retry, Re-run triage, and reconnect actions.
@@ -168,9 +168,9 @@ Use one scheduler owner. Do not run duplicate schedulers across multiple API or 
 | Phase | Milestone | Primary result | Exit requirement |
 |---|---|---|---|
 | 0 | Baseline and release control | Completed locally | Tests pass and environments are documented |
-| 1 | Automatic Gmail sync | In progress - M2 sync core completed | Sync health UI, operations polish, and staging soak pass |
-| 2 | Core workflow completion | In progress - M4 workflow core completed | Operations polish and staging verification are complete |
-| 3 | Operational controls | Failures can be seen and recovered | Retry, status, jobs, alerts, and runbooks exist |
+| 1 | Automatic Gmail sync | In progress - M2 sync core completed and M5 sync health backend added | Sync health UI and staging soak pass |
+| 2 | Core workflow completion | In progress - M4 workflow core completed and M5 operations backend added | Staging verification is complete |
+| 3 | Operational controls | Completed locally - failures can be seen, traced, and safely retried | External alert delivery, hosted runbooks, worker heartbeat, and staging verification exist |
 | 4 | Security and data protection | Tenant and credential risks are reduced | Security checklist and tests pass |
 | 5 | UI and product polish | Product is understandable and trustworthy | All critical states and responsive flows pass |
 | 6 | QA, staging, and performance | Release is proven outside local development | E2E, load, failure, and migration tests pass |
@@ -179,7 +179,7 @@ Use one scheduler owner. Do not run duplicate schedulers across multiple API or 
 
 ---
 
-# Phase 0 — Baseline and Release Control
+# Phase 0 â€” Baseline and Release Control
 
 ## Goal
 
@@ -236,7 +236,7 @@ The API and worker must fail fast when required production settings are missing.
 
 ---
 
-# Phase 1 — Automatic Gmail Synchronization
+# Phase 1 â€” Automatic Gmail Synchronization
 
 Status: In progress. M1 completed the authenticated Pub/Sub webhook foundation, Gmail watch registration, watch renewal entrypoint, and sync-event persistence. M2 completed backend Gmail history processing, duplicate-safe ticket ingestion, expired-checkpoint recovery, per-connection locking, and fallback stale-connection discovery.
 
@@ -327,7 +327,7 @@ Push notifications can be delayed or missed, so add a scheduled fallback.
 
 Recommended behavior:
 
-- Every 10–15 minutes, find active connections whose last successful sync is stale.
+- Every 10â€“15 minutes, find active connections whose last successful sync is stale.
 - Enqueue an incremental sync for those connections.
 - Add random jitter to avoid synchronizing every mailbox at the same second.
 - Do not enqueue another job when a connection is already syncing.
@@ -404,7 +404,7 @@ error
 paused
 ```
 
-Do not represent all failures with one generic “error” state.
+Do not represent all failures with one generic â€œerrorâ€ state.
 
 ## 1.8 API additions
 
@@ -436,7 +436,7 @@ Watch registration and renewal endpoints should be owner/admin only. Internal sc
 
 ---
 
-# Phase 2 — Core Workflow Completion
+# Phase 2 â€” Core Workflow Completion
 
 ## Goal
 
@@ -491,7 +491,7 @@ Keep triage job state separate from customer-support status where possible. Avoi
 - Invalidate prior approval when an approved suggestion is edited.
 - Prevent draft creation from stale or rejected suggestions.
 - Display the Gmail thread destination before draft creation.
-- Provide “Open draft in Gmail” after creation.
+- Provide â€œOpen draft in Gmailâ€ after creation.
 - Record every edit, approval, rejection, retry, and draft action.
 
 ## 2.4 Inbox behavior
@@ -526,7 +526,7 @@ Keep triage job state separate from customer-support status where possible. Avoi
 
 ---
 
-# Phase 3 — Operational Features
+# Phase 3 â€” Operational Features
 
 ## Goal
 
@@ -654,9 +654,28 @@ Create runbooks for:
 - Logs correlate HTTP requests, jobs, organizations, connections, and tickets.
 - Sensitive email bodies and tokens are not written to normal logs.
 
+## Local M5 Implementation Status
+
+Completed locally in M5:
+
+- Expanded the job-run schema with queue name, attempts, max attempts, correlation ID, related resource, error class/code, retry eligibility, next retry time, duration, alert owner, and runbook URL fields.
+- Added owner/admin operations endpoints for workspace failures, job detail, safe replay, and Gmail sync health.
+- Added a token-protected internal endpoint for system-wide failed jobs.
+- Added structured JSON API and worker logs with request ID, job ID, organization ID, connection ID, ticket ID, event name, duration, release, environment, and sanitized errors.
+- Added error classification for retryable queue/provider/database failures and terminal errors.
+- Added `/health/live`, `/health/ready`, and `/v1/status` dependency reporting.
+- Added tests for operations access control, retry behavior, sync-health redaction, internal token protection, and health/status checks.
+
+Remaining before production exit:
+
+- Configure external alert delivery and hosted runbook URLs.
+- Add worker heartbeat and queue-depth monitoring against deployed Redis/Celery.
+- Add the frontend operations page for owner/admin users.
+- Verify the full flow in staging with real API, worker, Redis, database, Gmail, Pub/Sub, and Gemini dependencies.
+
 ---
 
-# Phase 4 — Security and Data Protection
+# Phase 4 â€” Security and Data Protection
 
 ## Goal
 
@@ -733,7 +752,7 @@ Define:
 
 ---
 
-# Phase 5 — UI and Product Polish
+# Phase 5 â€” UI and Product Polish
 
 ## Goal
 
@@ -798,7 +817,7 @@ Owner/admin-only areas should be clearly marked or hidden based on permission.
 
 ---
 
-# Phase 6 — QA, Staging, and Performance
+# Phase 6 â€” QA, Staging, and Performance
 
 ## Goal
 
@@ -889,7 +908,7 @@ These are product targets, not external guarantees. Measure and revise them afte
 
 ---
 
-# Phase 7 — Pilot Launch
+# Phase 7 â€” Pilot Launch
 
 ## Goal
 
@@ -939,7 +958,7 @@ Do not launch when any of these are true:
 
 ---
 
-# Phase 8 — General Availability Preparation
+# Phase 8 â€” General Availability Preparation
 
 ## Goal
 
@@ -966,7 +985,7 @@ Make onboarding repeatable beyond the first pilot.
 
 ## 7. Recommended Production Backlog Order
 
-### P0 — Must finish before pilot
+### P0 â€” Must finish before pilot
 
 1. Environment and migration baseline - completed in M0
 2. Pub/Sub authenticated webhook - foundation completed in M1
@@ -982,7 +1001,7 @@ Make onboarding repeatable beyond the first pilot.
 12. End-to-end staging test
 13. Monitoring, alerts, backup, and rollback
 
-### P1 — Complete during or immediately after pilot
+### P1 â€” Complete during or immediately after pilot
 
 1. Saved inbox views
 2. Bulk assignment and resolve
@@ -995,7 +1014,7 @@ Make onboarding repeatable beyond the first pilot.
 9. Customer timeline
 10. Onboarding checklist
 
-### P2 — Post-pilot product expansion
+### P2 â€” Post-pilot product expansion
 
 1. Workspace knowledge base
 2. Knowledge-grounded reply generation
@@ -1036,4 +1055,3 @@ A production feature is done only when:
 - [Gmail users.watch](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users/watch)
 - [Gmail users.history.list](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.history/list)
 - [Authenticate Pub/Sub push subscriptions](https://cloud.google.com/pubsub/docs/authenticate-push-subscriptions)
-

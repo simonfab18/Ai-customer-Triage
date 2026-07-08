@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+﻿from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -12,6 +12,7 @@ from app.models.gmail_connection import GmailConnection
 from app.models.job_run import JobRun, JobRunStatus
 from app.models.mail_import_rule import MailImportRule
 from app.models.ticket import Ticket
+from app.services.operations_service import ensure_job_defaults, mark_job_failed, mark_job_running, mark_job_succeeded
 from app.services.rbac_service import require_membership
 from app.services.ticket_service import get_or_create_customer, write_ticket_event
 
@@ -105,6 +106,7 @@ def import_gmail_message_if_new(
     ticket = _create_ticket_from_gmail(db, organization_id, connection_id, actor, normalized)
     return ticket, True
 
+
 def create_gmail_import_job(
     db: Session,
     organization_id: str,
@@ -123,8 +125,12 @@ def create_gmail_import_job(
     job = JobRun(
         organization_id=organization_id,
         job_type="gmail_import",
+        queue_name="gmail_sync",
         status=status_value.value,
         started_at=now if status_value == JobRunStatus.RUNNING else None,
+        correlation_id=f"gmail-import-{connection_id}-{int(now.timestamp())}",
+        related_resource_type="gmail_connection",
+        related_resource_id=connection_id,
         job_metadata={
             "gmail_connection_id": connection_id,
             "max_results": max_results,
@@ -155,8 +161,13 @@ async def run_gmail_import_job(
     if job is None or job.organization_id != organization_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job run not found")
 
-    job.status = JobRunStatus.RUNNING.value
-    job.started_at = job.started_at or datetime.now(UTC)
+    ensure_job_defaults(
+        job,
+        queue_name="gmail_sync",
+        related_resource_type="gmail_connection",
+        related_resource_id=connection_id,
+    )
+    mark_job_running(job)
     db.commit()
 
     imported_count = 0
@@ -193,8 +204,7 @@ async def run_gmail_import_job(
                 skipped_count += 1
 
         connection.last_sync_at = datetime.now(UTC)
-        job.status = JobRunStatus.SUCCEEDED.value
-        job.finished_at = datetime.now(UTC)
+        mark_job_succeeded(job)
         job.job_metadata = {
             "gmail_connection_id": connection_id,
             "max_results": max_results,
@@ -212,9 +222,7 @@ async def run_gmail_import_job(
             except Exception:
                 continue
     except Exception as exc:
-        job.status = JobRunStatus.FAILED.value
-        job.error_message = str(exc)
-        job.finished_at = datetime.now(UTC)
+        mark_job_failed(job, exc)
         job.job_metadata = {
             "gmail_connection_id": connection_id,
             "max_results": max_results,

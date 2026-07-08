@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+﻿from datetime import UTC, datetime
 from time import perf_counter
 
 from fastapi import HTTPException, status
@@ -9,10 +9,11 @@ from app.api.deps import AuthenticatedUser
 from app.integrations.gemini.client import classify_ticket_with_gemini
 from app.integrations.gemini.prompts import build_triage_prompt
 from app.models.ai_triage_result import AITriageResult
-from app.models.job_run import JobRun, JobRunStatus
+from app.models.job_run import JobRun
 from app.models.reply_approval import ReplyApproval
 from app.models.ticket import Ticket, TicketCategory, TicketPriority, TicketStatus, TicketTriageStatus
 from app.schemas.ai import TriageOutput
+from app.services.operations_service import ensure_job_defaults, mark_job_failed, mark_job_running, mark_job_succeeded
 from app.services.reply_suggestion_service import create_ai_reply_suggestion_from_triage
 from app.services.ticket_service import get_ticket_or_404, write_ticket_event
 from app.services.ticket_lifecycle_service import transition_ticket_status
@@ -88,8 +89,13 @@ async def _execute_ticket_triage(
     ticket.triage_attempts += 1
     ticket.last_triage_started_at = started_at
     if job is not None:
-        job.status = JobRunStatus.RUNNING.value
-        job.started_at = job.started_at or started_at
+        ensure_job_defaults(
+            job,
+            queue_name="ai_triage",
+            related_resource_type="ticket",
+            related_resource_id=ticket.id,
+        )
+        mark_job_running(job)
         ticket.active_triage_job_id = job.id
     db.commit()
 
@@ -156,9 +162,7 @@ async def _execute_ticket_triage(
         db.flush()
 
         if job is not None:
-            job.status = JobRunStatus.SUCCEEDED.value
-            job.finished_at = utc_now()
-            job.error_message = None
+            mark_job_succeeded(job)
             job.job_metadata = {
                 **(job.job_metadata or {}),
                 "ai_triage_result_id": result.id,
@@ -195,9 +199,7 @@ async def _execute_ticket_triage(
         ticket.active_triage_job_id = None
         ticket.last_triage_completed_at = utc_now()
         if job is not None:
-            job.status = JobRunStatus.FAILED.value
-            job.error_message = error_message
-            job.finished_at = utc_now()
+            mark_job_failed(job, exc)
             job.job_metadata = {
                 **(job.job_metadata or {}),
                 "prompt_version": PROMPT_VERSION,

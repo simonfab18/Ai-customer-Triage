@@ -1,4 +1,4 @@
-from pydantic import Field
+﻿from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     frontend_origin: str | None = None
     error_tracking_dsn: str | None = None
     logging_level: str = "INFO"
+    service_name: str = "api"
+    release_version: str = "0.1.0"
+    operations_internal_token: str | None = None
+    operations_alert_owner: str = "platform"
+    operations_runbook_base_url: str | None = None
+    operations_failure_alert_threshold: int = 3
     worker_concurrency: int = 2
     sync_fallback_interval_minutes: int = 15
     watch_renewal_schedule: str = "0 3 * * *"
@@ -90,6 +96,8 @@ class Settings(BaseSettings):
             "WORKER_CONCURRENCY": self.worker_concurrency,
             "SYNC_FALLBACK_INTERVAL_MINUTES": self.sync_fallback_interval_minutes,
             "WATCH_RENEWAL_SCHEDULE": self.watch_renewal_schedule,
+            "RELEASE_VERSION": self.release_version,
+            "OPERATIONS_ALERT_OWNER": self.operations_alert_owner,
         }
         missing = [name for name, value in required_values.items() if not value]
         if missing:

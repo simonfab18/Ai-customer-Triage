@@ -1,4 +1,4 @@
-services:
+﻿services:
   - type: web
     name: ai-customer-support-triage-response-backend
     env: docker
@@ -17,6 +17,18 @@ services:
         value: https://ai-customer-support-triage-response.vercel.app
       - key: LOGGING_LEVEL
         value: INFO
+      - key: SERVICE_NAME
+        value: api
+      - key: RELEASE_VERSION
+        value: 0.1.0
+      - key: OPERATIONS_ALERT_OWNER
+        value: platform
+      - key: OPERATIONS_INTERNAL_TOKEN
+        sync: false
+      - key: OPERATIONS_RUNBOOK_BASE_URL
+        sync: false
+      - key: OPERATIONS_FAILURE_ALERT_THRESHOLD
+        value: "3"
       - key: ERROR_TRACKING_DSN
         sync: false
       - key: CELERY_TASK_ALWAYS_EAGER
@@ -84,6 +96,18 @@ services:
         value: https://ai-customer-support-triage-response.vercel.app
       - key: LOGGING_LEVEL
         value: INFO
+      - key: SERVICE_NAME
+        value: worker
+      - key: RELEASE_VERSION
+        value: 0.1.0
+      - key: OPERATIONS_ALERT_OWNER
+        value: platform
+      - key: OPERATIONS_INTERNAL_TOKEN
+        sync: false
+      - key: OPERATIONS_RUNBOOK_BASE_URL
+        sync: false
+      - key: OPERATIONS_FAILURE_ALERT_THRESHOLD
+        value: "3"
       - key: ERROR_TRACKING_DSN
         sync: false
       - key: CELERY_TASK_ALWAYS_EAGER

@@ -1,4 +1,4 @@
-# Next Features and Implementation Milestones
+﻿# Next Features and Implementation Milestones
 
 **Product:** AI Customer Support Triage and Response System  
 **Working product name:** Sift  
@@ -9,19 +9,19 @@
 
 ## 1. Prioritization Model
 
-### P0 — Production blocker
+### P0 â€” Production blocker
 
 Required before connecting a real pilot support inbox.
 
-### P1 — Pilot quality
+### P1 â€” Pilot quality
 
 Strongly improves daily usability, control, and product value.
 
-### P2 — Product expansion
+### P2 â€” Product expansion
 
 Build after the core workflow is stable and pilot data validates the need.
 
-### P3 — Later or optional
+### P3 â€” Later or optional
 
 Useful ideas that should not distract from the initial product.
 
@@ -36,8 +36,8 @@ Useful ideas that should not distract from the initial product.
 | M2. Incremental sync and recovery | P0 | Completed locally - reliable, duplicate-safe ticket ingestion |
 | M3. Automatic triage pipeline | P0 | Completed locally - new tickets are triaged without manual action |
 | M4. Core workflow polish | P0 | Completed locally - ticket, approval, and draft lifecycle is consistent |
-| M5. Operations and observability | P0 | Next - failures are visible, retryable, and alertable |
-| M6. Security and tenant hardening | P0 | Production data boundaries and credentials are protected |
+| M5. Operations and observability | P0 | Completed locally - failures are visible, retryable, and traceable |
+| M6. Security and tenant hardening | P0 | Next - production data boundaries and credentials are protected |
 | M7. Staging and pilot release | P0 | Full workflow is proven in a production-like environment |
 | M8. Agent productivity | P1 | Faster daily queue handling |
 | M9. Knowledge and routing | P1 | More accurate replies and smarter ownership |
@@ -46,7 +46,7 @@ Useful ideas that should not distract from the initial product.
 
 ---
 
-# M0 — Release Baseline
+# M0 â€” Release Baseline
 
 ## Features
 
@@ -103,7 +103,7 @@ Frontend:
 
 ---
 
-# M1 — Live Gmail Sync Foundation
+# M1 â€” Live Gmail Sync Foundation
 
 Status: Completed locally in branch `codex/m1-live-gmail-sync-foundation` at commit `cce5a74`.
 
@@ -158,7 +158,7 @@ Status: Completed locally in branch `codex/m1-live-gmail-sync-foundation` at com
 
 ---
 
-# M2 — Incremental Sync and Recovery
+# M2 â€” Incremental Sync and Recovery
 
 Status: Completed locally in branch `codex/m2-incremental-sync-recovery`.
 
@@ -258,7 +258,7 @@ Display:
 
 ---
 
-# M3 — Automatic Triage Pipeline
+# M3 â€” Automatic Triage Pipeline
 
 Status: Completed locally in branch `codex/m3-automatic-triage-pipeline`.
 
@@ -321,7 +321,7 @@ Do not store unrestricted raw model responses when they may expose unnecessary s
 
 ---
 
-# M4 — Core Workflow Polish
+# M4 â€” Core Workflow Polish
 
 Status: Completed locally in branch `codex/m4-core-workflow-polish`.
 
@@ -365,7 +365,7 @@ Status: Completed locally in branch `codex/m4-core-workflow-polish`.
 - Retry transient Gmail failures
 - Prevent duplicate draft
 - Preserve thread association
-- Return “Open in Gmail” destination when available
+- Return â€œOpen in Gmailâ€ destination when available
 - Handle deleted Gmail thread gracefully
 
 ### Acceptance criteria
@@ -413,7 +413,7 @@ Status: Completed locally in branch `codex/m4-core-workflow-polish`.
 
 ---
 
-# M5 — Operations and Observability
+# M5 â€” Operations and Observability
 
 ## Feature 17: Job-run model and operations page
 
@@ -434,6 +434,24 @@ Status: Completed locally in branch `codex/m4-core-workflow-polish`.
 
 - An owner/admin can see recent workspace failures.
 - Internal operators can see system-wide failures without exposing other organizations to customers.
+
+### Local implementation status
+
+Completed in M5 backend pass:
+
+- Expanded `job_runs` with queue, attempts, related resource, correlation ID, error class/code, retry eligibility, duration, alert owner, and runbook URL fields.
+- Added owner/admin operations endpoints for workspace failures, job detail, safe retry, and Gmail sync health.
+- Added a token-protected internal endpoint for system-wide failed jobs.
+- Added structured JSON API and worker logs with request/job/resource context and sanitized errors.
+- Added `/health/live`, `/health/ready`, and richer `/v1/status` dependency reporting.
+- Added error classification for retryable provider, queue, and database failures.
+- Added focused tests for operations access, retry behavior, sync health, redaction, and health/status.
+
+Known remaining production follow-up:
+
+- Connect external alert delivery and hosted runbook URLs in staging/production.
+- Add a frontend operations page using the new backend endpoints.
+- Add worker heartbeat and queue-depth monitoring once the deployed worker/Redis topology is finalized.
 
 ## Feature 18: Structured logging
 
@@ -509,7 +527,7 @@ GET /v1/status
 
 ---
 
-# M6 — Security and Tenant Hardening
+# M6 â€” Security and Tenant Hardening
 
 ## Feature 21: Authorization test matrix
 
@@ -595,7 +613,7 @@ Suggested protected actions:
 
 ---
 
-# M7 — Staging and Pilot Release
+# M7 â€” Staging and Pilot Release
 
 ## Feature 25: Production-like staging
 
@@ -654,7 +672,7 @@ Cover:
 
 ---
 
-# M8 — Agent Productivity Features
+# M8 â€” Agent Productivity Features
 
 ## Feature 28: Saved views
 
@@ -731,7 +749,7 @@ Examples:
 
 ---
 
-# M9 — Knowledge and Routing
+# M9 â€” Knowledge and Routing
 
 ## Feature 33: Workspace knowledge base
 
@@ -815,7 +833,7 @@ Possible actions:
 
 ---
 
-# M10 — Analytics and Administration
+# M10 â€” Analytics and Administration
 
 ## Feature 37: Support performance analytics
 
@@ -843,7 +861,7 @@ Metrics:
 - Rejected suggestion reasons
 - Provider latency and failure rate
 
-Avoid presenting “AI accuracy” unless there is a well-defined labeled evaluation set.
+Avoid presenting â€œAI accuracyâ€ unless there is a well-defined labeled evaluation set.
 
 ## Feature 39: Gmail sync analytics
 
@@ -878,7 +896,7 @@ Metrics:
 
 ---
 
-# M11 — Product Expansion
+# M11 â€” Product Expansion
 
 ## P2 features
 
@@ -968,7 +986,7 @@ These may be valuable later, but they add operational and security risk before t
 
 This is a sequencing estimate, not a fixed promise.
 
-### Sprint 1 — Baseline
+### Sprint 1 â€” Baseline
 
 - Environment validation
 - Alembic
@@ -976,14 +994,14 @@ This is a sequencing estimate, not a fixed promise.
 - Staging deployment skeleton
 - Sync schema migration
 
-### Sprint 2 — Push foundation
+### Sprint 2 â€” Push foundation
 
 - Pub/Sub resources
 - Authenticated webhook
 - Watch registration
 - Watch state UI
 
-### Sprint 3 — Incremental sync
+### Sprint 3 â€” Incremental sync
 
 - History worker
 - Pagination
@@ -991,7 +1009,7 @@ This is a sequencing estimate, not a fixed promise.
 - Idempotency
 - Per-connection lock
 
-### Sprint 4 — Recovery
+### Sprint 4 â€” Recovery
 
 - Daily renewal
 - Fallback scheduler
@@ -999,7 +1017,7 @@ This is a sequencing estimate, not a fixed promise.
 - Retry rules
 - Sync event UI
 
-### Sprint 5 — AI pipeline
+### Sprint 5 â€” AI pipeline
 
 - Auto-triage
 - Job states
@@ -1007,7 +1025,7 @@ This is a sequencing estimate, not a fixed promise.
 - Retry and fallback
 - Agent retry UI
 
-### Sprint 6 — Workflow polish
+### Sprint 6 â€” Workflow polish
 
 - Lifecycle state machine
 - Reply versioning
@@ -1015,7 +1033,7 @@ This is a sequencing estimate, not a fixed promise.
 - Draft idempotency
 - Inbox pagination and filters
 
-### Sprint 7 — Operations and security
+### Sprint 7 â€” Operations and security
 
 - Job operations
 - Structured logs
@@ -1025,7 +1043,7 @@ This is a sequencing estimate, not a fixed promise.
 - Rate limits
 - Secret rotation
 
-### Sprint 8 — Release candidate
+### Sprint 8 â€” Release candidate
 
 - E2E suite
 - Failure testing
@@ -1181,4 +1199,3 @@ Start with these implementation tickets:
 - [Gmail users.watch](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users/watch)
 - [Gmail users.history.list](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.history/list)
 - [Authenticate Pub/Sub push subscriptions](https://cloud.google.com/pubsub/docs/authenticate-push-subscriptions)
-

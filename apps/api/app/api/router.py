@@ -8,6 +8,7 @@ from app.api.routes.imports import router as imports_router
 from app.api.routes.me import router as me_router
 from app.api.routes.members import router as members_router
 from app.api.routes.metrics import router as metrics_router
+from app.api.routes.operations import router as operations_router
 from app.api.routes.organizations import router as organizations_router
 from app.api.routes.reply_approvals import router as reply_approvals_router
 from app.api.routes.reply_suggestions import router as reply_suggestions_router
@@ -23,6 +24,7 @@ api_router.include_router(me_router, prefix="/v1")
 api_router.include_router(organizations_router, prefix="/v1")
 api_router.include_router(members_router, prefix="/v1")
 api_router.include_router(metrics_router, prefix="/v1")
+api_router.include_router(operations_router, prefix="/v1")
 api_router.include_router(tickets_router, prefix="/v1")
 api_router.include_router(workspace_settings_router, prefix="/v1")
 api_router.include_router(gmail_router, prefix="/v1")

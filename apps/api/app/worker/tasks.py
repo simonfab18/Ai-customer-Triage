@@ -1,12 +1,24 @@
-import asyncio
+﻿import asyncio
+import logging
 
 from app.api.deps import AuthenticatedUser
+from app.core.logging import job_id_var
 from app.db.session import SessionLocal
+from app.services.ai_triage_service import run_ticket_triage_job
 from app.services.email_import_service import run_gmail_import_job
 from app.services.gmail_history_sync_service import run_gmail_history_sync
 from app.services.gmail_watch_service import renew_gmail_watch
-from app.services.ai_triage_service import run_ticket_triage_job
 from app.worker.celery_app import celery_app
+
+logger = logging.getLogger(__name__)
+
+
+def _set_job_context(job_id: str | None):
+    return job_id_var.set(job_id)
+
+
+def _reset_job_context(token) -> None:
+    job_id_var.reset(token)
 
 
 @celery_app.task(name="gmail.sync_connection")
@@ -18,9 +30,19 @@ def sync_gmail_connection_task(
     actor_email: str | None,
     max_results: int,
 ) -> str:
+    token = _set_job_context(job_id)
     actor = AuthenticatedUser(id=actor_id, email=actor_email)
     db = SessionLocal()
     try:
+        logger.info(
+            "Worker job started",
+            extra={
+                "event_name": "worker.job_started",
+                "job_id": job_id,
+                "organization_id": organization_id,
+                "connection_id": connection_id,
+            },
+        )
         job = asyncio.run(
             run_gmail_import_job(
                 db,
@@ -32,8 +54,21 @@ def sync_gmail_connection_task(
             )
         )
         return job.id
+    except Exception as exc:
+        logger.exception(
+            "Worker job failed",
+            extra={
+                "event_name": "worker.job_failed",
+                "job_id": job_id,
+                "organization_id": organization_id,
+                "connection_id": connection_id,
+                "sanitized_error": exc,
+            },
+        )
+        raise
     finally:
         db.close()
+        _reset_job_context(token)
 
 
 @celery_app.task(name="gmail.history_sync_connection")
@@ -44,6 +79,7 @@ def history_sync_gmail_connection_task(
     notification_history_id: str | None = None,
     trigger_type: str = "history_sync",
 ) -> str:
+    token = _set_job_context(event_id)
     db = SessionLocal()
     try:
         event = asyncio.run(
@@ -57,8 +93,21 @@ def history_sync_gmail_connection_task(
             )
         )
         return event.id
+    except Exception as exc:
+        logger.exception(
+            "Worker sync event failed",
+            extra={
+                "event_name": "worker.sync_event_failed",
+                "job_id": event_id,
+                "organization_id": organization_id,
+                "connection_id": connection_id,
+                "sanitized_error": exc,
+            },
+        )
+        raise
     finally:
         db.close()
+        _reset_job_context(token)
 
 
 @celery_app.task(name="gmail.renew_watch")
@@ -89,11 +138,21 @@ def enqueue_fallback_syncs_task() -> list[str]:
     finally:
         db.close()
 
+
 @celery_app.task(name="ai.triage_ticket")
 def triage_ticket_task(job_id: str) -> str:
+    token = _set_job_context(job_id)
     db = SessionLocal()
     try:
+        logger.info("Worker job started", extra={"event_name": "worker.job_started", "job_id": job_id})
         result = asyncio.run(run_ticket_triage_job(db, job_id))
         return result.id
+    except Exception as exc:
+        logger.exception(
+            "Worker job failed",
+            extra={"event_name": "worker.job_failed", "job_id": job_id, "sanitized_error": exc},
+        )
+        raise
     finally:
         db.close()
+        _reset_job_context(token)
