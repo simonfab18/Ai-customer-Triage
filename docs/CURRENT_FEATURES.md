@@ -91,6 +91,10 @@ Current limitation:
   - reasoning
   - human review requirement
 - Running triage updates the ticket classification fields.
+- New tickets can automatically queue AI triage jobs after ticket creation or Gmail import.
+- Ticket responses expose triage queued, running, completed, and failed states.
+- Failed triage can be retried through the backend.
+- AI triage results store prompt/schema version and latency metadata.
 - AI triage creates a reply suggestion for agent review.
 
 ## Reply Suggestions and Human Approval

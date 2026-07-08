@@ -80,6 +80,12 @@ def create_ticket(
     db.flush()
     write_ticket_event(db, ticket, actor, "ticket.created", {"source": "manual"})
     db.commit()
+    try:
+        from app.services.job_queue_service import enqueue_ticket_triage
+
+        enqueue_ticket_triage(db, organization_id, ticket.id, actor, raise_on_enqueue_error=False)
+    except Exception:
+        pass
     return get_ticket_or_404(db, organization_id, ticket.id, actor)
 
 
@@ -125,6 +131,8 @@ def list_tickets(
             priority=ticket.priority,
             sentiment=ticket.sentiment,
             assigned_to_user_id=ticket.assigned_to_user_id,
+            triage_status=ticket.triage_status,
+            triage_error_message=ticket.triage_error_message,
             received_at=ticket.received_at,
             updated_at=ticket.updated_at,
         )

@@ -166,6 +166,7 @@ async def _run_locked_history_sync(
     skipped = 0
     seen = 0
     tickets_created = 0
+    created_ticket_ids: list[str] = []
     start_history_id = connection.gmail_history_id
 
     try:
@@ -174,13 +175,13 @@ async def _run_locked_history_sync(
         connection.access_token_expires_at = expires_at
 
         if not start_history_id:
-            imported, skipped, seen, tickets_created = await _run_reconciliation(
+            imported, skipped, seen, tickets_created, created_ticket_ids = await _run_reconciliation(
                 db, connection, rule, access_token
             )
             end_history_id = notification_history_id or connection.gmail_history_id
             event.trigger_type = "reconciliation"
         else:
-            imported, skipped, seen, tickets_created, end_history_id = await _run_incremental_history(
+            imported, skipped, seen, tickets_created, end_history_id, created_ticket_ids = await _run_incremental_history(
                 db, connection, rule, access_token, start_history_id
             )
 
@@ -205,8 +206,9 @@ async def _run_locked_history_sync(
             "reconciliation": event.trigger_type == "reconciliation",
         }
         db.commit()
+        _enqueue_created_ticket_triage(db, connection.organization_id, created_ticket_ids)
     except GmailHistoryExpiredError:
-        imported, skipped, seen, tickets_created = await _handle_expired_history(
+        imported, skipped, seen, tickets_created, created_ticket_ids = await _handle_expired_history(
             db, connection, event, rule
         )
         event.messages_seen = seen
@@ -214,6 +216,7 @@ async def _run_locked_history_sync(
         event.messages_skipped = skipped
         event.tickets_created = tickets_created
         db.commit()
+        _enqueue_created_ticket_triage(db, connection.organization_id, created_ticket_ids)
     except Exception as exc:
         error_message = _safe_error(exc)
         connection.sync_status = "degraded"
@@ -241,7 +244,7 @@ async def _run_incremental_history(
     rule: MailImportRule,
     access_token: str,
     start_history_id: str,
-) -> tuple[int, int, int, int, str | None]:
+) -> tuple[int, int, int, int, str | None, list[str]]:
     message_ids: list[str] = []
     page_token: str | None = None
     end_history_id: str | None = None
@@ -265,7 +268,7 @@ async def _run_reconciliation(
     connection: GmailConnection,
     rule: MailImportRule,
     access_token: str,
-) -> tuple[int, int, int, int]:
+) -> tuple[int, int, int, int, list[str]]:
     label_ids = [rule.support_label_id] if rule.support_label_id else []
     message_ids = await list_gmail_message_ids(
         access_token,
@@ -273,10 +276,10 @@ async def _run_reconciliation(
         unread_only=rule.import_unread_only,
         max_results=RECONCILIATION_MAX_RESULTS,
     )
-    imported, skipped, seen, tickets_created, _ = await _import_message_ids(
+    imported, skipped, seen, tickets_created, _, created_ticket_ids = await _import_message_ids(
         db, connection, rule, access_token, message_ids, connection.gmail_history_id
     )
-    return imported, skipped, seen, tickets_created
+    return imported, skipped, seen, tickets_created, created_ticket_ids
 
 
 async def _handle_expired_history(
@@ -284,11 +287,11 @@ async def _handle_expired_history(
     connection: GmailConnection,
     event: GmailSyncEvent,
     rule: MailImportRule,
-) -> tuple[int, int, int, int]:
+) -> tuple[int, int, int, int, list[str]]:
     refresh_token = decrypt_secret(connection.encrypted_refresh_token)
     access_token, expires_at = await refresh_gmail_access_token(refresh_token)
     connection.access_token_expires_at = expires_at
-    imported, skipped, seen, tickets_created = await _run_reconciliation(db, connection, rule, access_token)
+    imported, skipped, seen, tickets_created, created_ticket_ids = await _run_reconciliation(db, connection, rule, access_token)
     await renew_gmail_watch(db, connection.organization_id, connection.id, actor=None)
     db.flush()
     db.refresh(connection)
@@ -305,7 +308,7 @@ async def _handle_expired_history(
     event.end_history_id = connection.gmail_history_id
     event.completed_at = utc_now()
     event.sync_metadata = {**(event.sync_metadata or {}), "recovery_reason": "history_checkpoint_expired"}
-    return imported, skipped, seen, tickets_created
+    return imported, skipped, seen, tickets_created, created_ticket_ids
 
 
 async def _import_message_ids(
@@ -315,11 +318,12 @@ async def _import_message_ids(
     access_token: str,
     message_ids: list[str],
     end_history_id: str | None,
-) -> tuple[int, int, int, int, str | None]:
+) -> tuple[int, int, int, int, str | None, list[str]]:
     imported = 0
     skipped = 0
     tickets_created = 0
     seen = 0
+    created_ticket_ids: list[str] = []
     for message_id in dict.fromkeys(message_ids):
         seen += 1
         raw_message = await get_gmail_message(access_token, message_id)
@@ -327,19 +331,36 @@ async def _import_message_ids(
             skipped += 1
             continue
         normalized = normalize_gmail_message(raw_message)
-        _, created = import_gmail_message_if_new(
+        ticket, created = import_gmail_message_if_new(
             db,
             connection.organization_id,
             connection.id,
             SYSTEM_GMAIL_SYNC_ACTOR,
             normalized,
         )
-        if created:
+        if created and ticket is not None:
             imported += 1
             tickets_created += 1
+            created_ticket_ids.append(ticket.id)
         else:
             skipped += 1
-    return imported, skipped, seen, tickets_created, end_history_id
+    return imported, skipped, seen, tickets_created, end_history_id, created_ticket_ids
+
+
+def _enqueue_created_ticket_triage(db: Session, organization_id: str, ticket_ids: list[str]) -> None:
+    for ticket_id in ticket_ids:
+        try:
+            from app.services.job_queue_service import enqueue_ticket_triage
+
+            enqueue_ticket_triage(
+                db,
+                organization_id,
+                ticket_id,
+                SYSTEM_GMAIL_SYNC_ACTOR,
+                raise_on_enqueue_error=False,
+            )
+        except Exception:
+            continue
 
 
 def create_history_sync_event(

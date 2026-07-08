@@ -11,6 +11,20 @@ from app.db.session import get_db
 from app.main import create_app
 
 
+@pytest.fixture(autouse=True)
+def stub_auto_triage_dispatch(monkeypatch):
+    class StubTaskResult:
+        id = "stub-ai-triage-task"
+
+    calls: list[str] = []
+
+    def fake_delay(job_id: str):
+        calls.append(job_id)
+        return StubTaskResult()
+
+    monkeypatch.setattr("app.worker.tasks.triage_ticket_task.delay", fake_delay)
+    yield calls
+
 @pytest.fixture
 def client():
     engine = create_engine(

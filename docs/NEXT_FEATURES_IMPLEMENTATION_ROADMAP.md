@@ -34,8 +34,8 @@ Useful ideas that should not distract from the initial product.
 | M0. Release baseline | P0 | Completed - controlled environments, migrations, and CI |
 | M1. Live Gmail sync foundation | P0 | Completed - authenticated Gmail push events reach the application |
 | M2. Incremental sync and recovery | P0 | Completed locally - reliable, duplicate-safe ticket ingestion |
-| M3. Automatic triage pipeline | P0 | Next - new tickets are triaged without manual action |
-| M4. Core workflow polish | P0 | Ticket, approval, and draft lifecycle is consistent |
+| M3. Automatic triage pipeline | P0 | Completed locally - new tickets are triaged without manual action |
+| M4. Core workflow polish | P0 | Next - ticket, approval, and draft lifecycle is consistent |
 | M5. Operations and observability | P0 | Failures are visible, retryable, and alertable |
 | M6. Security and tenant hardening | P0 | Production data boundaries and credentials are protected |
 | M7. Staging and pilot release | P0 | Full workflow is proven in a production-like environment |
@@ -259,6 +259,9 @@ Display:
 ---
 
 # M3 — Automatic Triage Pipeline
+
+Status: Completed locally in branch `codex/m3-automatic-triage-pipeline`.
+
 
 ## Feature 9: Auto-triage on ticket creation
 

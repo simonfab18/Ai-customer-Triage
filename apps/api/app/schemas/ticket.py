@@ -57,6 +57,12 @@ class TicketRead(BaseModel):
     priority: str
     sentiment: str
     assigned_to_user_id: str | None = None
+    triage_status: str
+    active_triage_job_id: str | None = None
+    triage_error_message: str | None = None
+    triage_attempts: int
+    last_triage_started_at: datetime | None = None
+    last_triage_completed_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -73,6 +79,8 @@ class TicketListItem(BaseModel):
     priority: str
     sentiment: str
     assigned_to_user_id: str | None = None
+    triage_status: str
+    triage_error_message: str | None = None
     received_at: datetime
     updated_at: datetime
 

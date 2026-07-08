@@ -1,3 +1,7 @@
+from datetime import UTC, datetime
+from time import perf_counter
+
+from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -5,11 +9,16 @@ from app.api.deps import AuthenticatedUser
 from app.integrations.gemini.client import classify_ticket_with_gemini
 from app.integrations.gemini.prompts import build_triage_prompt
 from app.models.ai_triage_result import AITriageResult
+from app.models.job_run import JobRun, JobRunStatus
 from app.models.reply_approval import ReplyApproval
-from app.models.ticket import TicketCategory, TicketPriority
+from app.models.ticket import Ticket, TicketCategory, TicketPriority, TicketTriageStatus
 from app.schemas.ai import TriageOutput
 from app.services.reply_suggestion_service import create_ai_reply_suggestion_from_triage
 from app.services.ticket_service import get_ticket_or_404, write_ticket_event
+
+PROMPT_VERSION = "triage-v1"
+SCHEMA_VERSION = "triage-output-v1"
+SYSTEM_TRIAGE_ACTOR = AuthenticatedUser(id="system:ai-triage", email=None)
 
 REVIEW_REQUIRED_CATEGORIES = {
     TicketCategory.REFUND.value,
@@ -36,6 +45,10 @@ REVIEW_KEYWORDS = {
 }
 
 
+def utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
 def enforce_human_review(output: TriageOutput, subject: str, message: str) -> bool:
     if output.requires_human_review:
         return True
@@ -48,6 +61,156 @@ def enforce_human_review(output: TriageOutput, subject: str, message: str) -> bo
     return any(keyword in text for keyword in REVIEW_KEYWORDS)
 
 
+def _get_ticket_for_job(db: Session, organization_id: str, ticket_id: str) -> Ticket:
+    ticket = db.get(Ticket, ticket_id)
+    if ticket is None or ticket.organization_id != organization_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+    return ticket
+
+
+def _safe_error(exc: Exception) -> str:
+    if isinstance(exc, HTTPException):
+        return str(exc.detail)
+    return str(exc)
+
+
+async def _execute_ticket_triage(
+    db: Session,
+    ticket: Ticket,
+    actor: AuthenticatedUser,
+    *,
+    job: JobRun | None = None,
+) -> AITriageResult:
+    started_at = utc_now()
+    ticket.triage_status = TicketTriageStatus.TRIAGING.value
+    ticket.triage_error_message = None
+    ticket.triage_attempts += 1
+    ticket.last_triage_started_at = started_at
+    if job is not None:
+        job.status = JobRunStatus.RUNNING.value
+        job.started_at = job.started_at or started_at
+        ticket.active_triage_job_id = job.id
+    db.commit()
+
+    prompt = build_triage_prompt(
+        customer_name=ticket.customer.name,
+        customer_email=ticket.customer.email,
+        subject=ticket.subject,
+        message=ticket.message_text,
+    )
+    timer = perf_counter()
+    try:
+        output, raw_output = await classify_ticket_with_gemini(prompt)
+        latency_ms = int((perf_counter() - timer) * 1000)
+        requires_human_review = enforce_human_review(output, ticket.subject, ticket.message_text)
+
+        ticket.category = output.category.value
+        ticket.priority = output.priority.value
+        ticket.sentiment = output.sentiment.value
+        ticket.triage_status = TicketTriageStatus.TRIAGED.value
+        ticket.triage_error_message = None
+        ticket.active_triage_job_id = None
+        ticket.last_triage_completed_at = utc_now()
+
+        validated_output = output.model_dump(mode="json")
+        validated_output["requires_human_review"] = requires_human_review
+
+        result = AITriageResult(
+            organization_id=ticket.organization_id,
+            ticket_id=ticket.id,
+            model_name=raw_output.get("model") or "gemini",
+            prompt_version=PROMPT_VERSION,
+            schema_version=SCHEMA_VERSION,
+            latency_ms=latency_ms,
+            job_run_id=job.id if job is not None else None,
+            raw_input={"prompt": prompt, "prompt_version": PROMPT_VERSION, "schema_version": SCHEMA_VERSION},
+            raw_output=raw_output,
+            validated_output=validated_output,
+            category=output.category.value,
+            priority=output.priority.value,
+            sentiment=output.sentiment.value,
+            summary=output.summary,
+            suggested_action=output.suggested_action,
+            draft_reply=output.draft_reply,
+            confidence_score=output.confidence_score,
+            reasoning=output.reasoning,
+            requires_human_review=requires_human_review,
+            validation_status="valid",
+        )
+        db.add(result)
+        db.flush()
+        create_ai_reply_suggestion_from_triage(db, ticket.id, result, ticket.gmail_connection_id)
+        db.add(
+            ReplyApproval(
+                organization_id=ticket.organization_id,
+                ticket_id=ticket.id,
+                ai_triage_result_id=result.id,
+                gmail_connection_id=ticket.gmail_connection_id,
+                suggested_reply=result.draft_reply,
+                final_reply=result.draft_reply,
+            )
+        )
+        db.flush()
+
+        if job is not None:
+            job.status = JobRunStatus.SUCCEEDED.value
+            job.finished_at = utc_now()
+            job.error_message = None
+            job.job_metadata = {
+                **(job.job_metadata or {}),
+                "ai_triage_result_id": result.id,
+                "prompt_version": PROMPT_VERSION,
+                "schema_version": SCHEMA_VERSION,
+                "latency_ms": latency_ms,
+            }
+
+        write_ticket_event(
+            db,
+            ticket,
+            actor,
+            "ticket.ai_triaged",
+            {
+                "ai_triage_result_id": result.id,
+                "ai_triage_job_id": job.id if job is not None else None,
+                "model_provider": result.model_provider,
+                "model_name": result.model_name,
+                "prompt_version": PROMPT_VERSION,
+                "schema_version": SCHEMA_VERSION,
+                "priority": result.priority,
+                "category": result.category,
+                "requires_human_review": result.requires_human_review,
+                "confidence_score": result.confidence_score,
+            },
+        )
+        db.commit()
+        db.refresh(result)
+        return result
+    except Exception as exc:
+        error_message = _safe_error(exc)
+        ticket.triage_status = TicketTriageStatus.FAILED.value
+        ticket.triage_error_message = error_message
+        ticket.active_triage_job_id = None
+        ticket.last_triage_completed_at = utc_now()
+        if job is not None:
+            job.status = JobRunStatus.FAILED.value
+            job.error_message = error_message
+            job.finished_at = utc_now()
+            job.job_metadata = {
+                **(job.job_metadata or {}),
+                "prompt_version": PROMPT_VERSION,
+                "schema_version": SCHEMA_VERSION,
+            }
+        write_ticket_event(
+            db,
+            ticket,
+            actor,
+            "ticket.ai_triage_failed",
+            {"ai_triage_job_id": job.id if job is not None else None, "error_message": error_message},
+        )
+        db.commit()
+        raise
+
+
 async def run_ticket_triage(
     db: Session,
     organization_id: str,
@@ -55,73 +218,18 @@ async def run_ticket_triage(
     actor: AuthenticatedUser,
 ) -> AITriageResult:
     ticket = get_ticket_or_404(db, organization_id, ticket_id, actor)
-    prompt = build_triage_prompt(
-        customer_name=ticket.customer.name,
-        customer_email=ticket.customer.email,
-        subject=ticket.subject,
-        message=ticket.message_text,
-    )
-    output, raw_output = await classify_ticket_with_gemini(prompt)
-    requires_human_review = enforce_human_review(output, ticket.subject, ticket.message_text)
+    return await _execute_ticket_triage(db, ticket, actor)
 
-    ticket.category = output.category.value
-    ticket.priority = output.priority.value
-    ticket.sentiment = output.sentiment.value
 
-    validated_output = output.model_dump(mode="json")
-    validated_output["requires_human_review"] = requires_human_review
-
-    result = AITriageResult(
-        organization_id=organization_id,
-        ticket_id=ticket.id,
-        model_name=raw_output.get("model") or "gemini",
-        raw_input={"prompt": prompt},
-        raw_output=raw_output,
-        validated_output=validated_output,
-        category=output.category.value,
-        priority=output.priority.value,
-        sentiment=output.sentiment.value,
-        summary=output.summary,
-        suggested_action=output.suggested_action,
-        draft_reply=output.draft_reply,
-        confidence_score=output.confidence_score,
-        reasoning=output.reasoning,
-        requires_human_review=requires_human_review,
-        validation_status="valid",
-    )
-    db.add(result)
-    db.flush()
-    create_ai_reply_suggestion_from_triage(db, ticket.id, result, ticket.gmail_connection_id)
-    db.add(
-        ReplyApproval(
-            organization_id=organization_id,
-            ticket_id=ticket.id,
-            ai_triage_result_id=result.id,
-            gmail_connection_id=ticket.gmail_connection_id,
-            suggested_reply=result.draft_reply,
-            final_reply=result.draft_reply,
-        )
-    )
-    db.flush()
-
-    write_ticket_event(
-        db,
-        ticket,
-        actor,
-        "ticket.ai_triaged",
-        {
-            "ai_triage_result_id": result.id,
-            "model_provider": result.model_provider,
-            "model_name": result.model_name,
-            "priority": result.priority,
-            "category": result.category,
-            "requires_human_review": result.requires_human_review,
-            "confidence_score": result.confidence_score,
-        },
-    )
-    db.commit()
-    db.refresh(result)
-    return result
+async def run_ticket_triage_job(db: Session, job_id: str) -> AITriageResult:
+    job = db.get(JobRun, job_id)
+    if job is None or job.job_type != "ai_triage":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AI triage job not found")
+    ticket_id = (job.job_metadata or {}).get("ticket_id")
+    if not ticket_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="AI triage job is missing a ticket")
+    ticket = _get_ticket_for_job(db, job.organization_id, ticket_id)
+    return await _execute_ticket_triage(db, ticket, SYSTEM_TRIAGE_ACTOR, job=job)
 
 
 def list_ticket_triage_results(

@@ -162,6 +162,7 @@ async def run_gmail_import_job(
     imported_count = 0
     skipped_count = 0
     message_ids: list[str] = []
+    created_ticket_ids: list[str] = []
     try:
         refresh_token = decrypt_secret(connection.encrypted_refresh_token)
         access_token, expires_at = await refresh_gmail_access_token(refresh_token)
@@ -184,9 +185,10 @@ async def run_gmail_import_job(
             if not normalized.gmail_message_id:
                 skipped_count += 1
                 continue
-            _, created = import_gmail_message_if_new(db, organization_id, connection_id, actor, normalized)
-            if created:
+            ticket, created = import_gmail_message_if_new(db, organization_id, connection_id, actor, normalized)
+            if created and ticket is not None:
                 imported_count += 1
+                created_ticket_ids.append(ticket.id)
             else:
                 skipped_count += 1
 
@@ -202,6 +204,13 @@ async def run_gmail_import_job(
             "seen_count": len(message_ids),
         }
         db.commit()
+        for ticket_id in created_ticket_ids:
+            try:
+                from app.services.job_queue_service import enqueue_ticket_triage
+
+                enqueue_ticket_triage(db, organization_id, ticket_id, actor, raise_on_enqueue_error=False)
+            except Exception:
+                continue
     except Exception as exc:
         job.status = JobRunStatus.FAILED.value
         job.error_message = str(exc)

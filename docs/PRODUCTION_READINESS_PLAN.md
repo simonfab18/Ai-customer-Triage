@@ -169,7 +169,7 @@ Use one scheduler owner. Do not run duplicate schedulers across multiple API or 
 |---|---|---|---|
 | 0 | Baseline and release control | Completed locally | Tests pass and environments are documented |
 | 1 | Automatic Gmail sync | In progress - M2 sync core completed | Sync health UI, operations polish, and staging soak pass |
-| 2 | Core workflow completion | Imported mail reliably reaches approval | Auto-triage and lifecycle states are complete |
+| 2 | Core workflow completion | In progress - M3 auto-triage completed | Lifecycle, approval, draft, and inbox polish are complete |
 | 3 | Operational controls | Failures can be seen and recovered | Retry, status, jobs, alerts, and runbooks exist |
 | 4 | Security and data protection | Tenant and credential risks are reduced | Security checklist and tests pass |
 | 5 | UI and product polish | Product is understandable and trustworthy | All critical states and responsive flows pass |
@@ -443,6 +443,8 @@ Watch registration and renewal endpoints should be owner/admin only. Internal sc
 Make the full ticket-to-draft workflow reliable, fast, and consistent.
 
 ## 2.1 Automatic triage
+
+Status: Backend queueing, worker execution, failure visibility, version metadata, and manual retry completed in M3.
 
 When a new ticket is created:
 
@@ -971,7 +973,7 @@ Make onboarding repeatable beyond the first pilot.
 5. Idempotency and per-connection locking - completed in M2
 6. Fallback sync and expired-history recovery - completed in M2
 7. Sync status UI - backend status endpoints completed in M2; UI polish remains
-8. Automatic triage queue - next in M3
+8. Automatic triage queue - completed in M3
 9. Core lifecycle and approval consistency
 10. Worker retries and failed-job visibility
 11. Security tests and secret rotation

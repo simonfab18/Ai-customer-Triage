@@ -5,6 +5,7 @@ from app.db.session import SessionLocal
 from app.services.email_import_service import run_gmail_import_job
 from app.services.gmail_history_sync_service import run_gmail_history_sync
 from app.services.gmail_watch_service import renew_gmail_watch
+from app.services.ai_triage_service import run_ticket_triage_job
 from app.worker.celery_app import celery_app
 
 
@@ -85,5 +86,14 @@ def enqueue_fallback_syncs_task() -> list[str]:
 
         events = enqueue_fallback_syncs(db)
         return [event.id for event in events]
+    finally:
+        db.close()
+
+@celery_app.task(name="ai.triage_ticket")
+def triage_ticket_task(job_id: str) -> str:
+    db = SessionLocal()
+    try:
+        result = asyncio.run(run_ticket_triage_job(db, job_id))
+        return result.id
     finally:
         db.close()

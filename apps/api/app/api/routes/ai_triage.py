@@ -1,8 +1,9 @@
 from fastapi import APIRouter, status
 
 from app.api.deps import CurrentUser, DbSession
-from app.schemas.ai import AITriageResultRead
+from app.schemas.ai import AITriageJobRead, AITriageResultRead
 from app.services.ai_triage_service import list_ticket_triage_results, run_ticket_triage
+from app.services.job_queue_service import enqueue_ticket_triage
 
 router = APIRouter(tags=["ai-triage"])
 
@@ -19,6 +20,20 @@ async def triage_ticket(
     current_user: CurrentUser,
 ):
     return await run_ticket_triage(db, organization_id, ticket_id, current_user)
+
+
+@router.post(
+    "/orgs/{organization_id}/tickets/{ticket_id}/triage/retry",
+    response_model=AITriageJobRead,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def retry_ticket_triage(
+    organization_id: str,
+    ticket_id: str,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    return enqueue_ticket_triage(db, organization_id, ticket_id, current_user, force=True, respect_workspace_setting=False)
 
 
 @router.get("/orgs/{organization_id}/tickets/{ticket_id}/triage", response_model=list[AITriageResultRead])

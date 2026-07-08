@@ -4,7 +4,7 @@
 
 The project is past the initial MVP foundation. The app now has a Next.js frontend, FastAPI backend, Supabase-backed PostgreSQL database, Supabase Auth, Gmail OAuth, Gmail import, AI triage with Gemini, reply approvals, Gmail draft creation, dashboard views, role-aware navigation, and local development servers.
 
-Incremental Gmail history sync and recovery is now implemented locally. The next major product improvement is M3: automatic triage pipeline, which will triage newly created tickets without manual action.
+Automatic triage pipeline is now implemented locally. The next major product improvement is M4: core workflow polish, which will tighten ticket, approval, and draft lifecycle consistency.
 
 ## Completed Milestones
 
@@ -115,43 +115,32 @@ Incremental Gmail history sync and recovery is now implemented locally. The next
 - Added responsive layout direction.
 - Added reusable product UI components for badges, cards, queue rows, and app navigation.
 
-## Next Recommended Milestone: M3 Automatic Triage Pipeline
+## Next Recommended Milestone: M4 Core Workflow Polish
 
 ### Goal
 
-Newly created tickets should automatically receive AI triage, while duplicate imports and retry attempts remain idempotent and visible.
+Ticket, reply approval, and Gmail draft states should stay consistent through retries, edits, and stale user actions.
 
 ### Recommended Production Design
 
-- Queue triage after the ticket transaction commits.
-- Track one active triage job per ticket and prompt/schema version.
-- Preserve manual retry for failed triage.
-- Store AI result versions so prompt changes are auditable.
-- Keep newly imported tickets visible even if triage is delayed or fails.
+- Define legal ticket lifecycle transitions in one backend service.
+- Keep reply versions and approvals tied to exact content.
+- Prevent stale approved replies from creating drafts after edits.
+- Make draft creation idempotent and retry-safe.
+- Improve inbox pagination, filtering, and approval queue behavior.
 
 ### Backend Work
 
-- Add automatic triage enqueue after ticket creation.
-- Add idempotent triage job state.
-- Add retry behavior for transient AI failures.
-- Add manual retry endpoint for owners/admins or permitted agents.
-
-### Database Work
-
-Add or extend triage tracking fields:
-
-- ticket triage status
-- active triage job identifier
-- prompt/schema version
-- last triage error
-- retry metadata
+- Add lifecycle transition validation and tests.
+- Add reply versioning or approval invalidation where needed.
+- Harden draft creation idempotency and failure handling.
+- Add inbox pagination/filter behavior required for production volumes.
 
 ### Frontend Work
 
-- Show triage pending, failed, and retryable states.
-- Keep existing ticket detail AI sections stable while jobs run.
-- Make manual retry available where the user has permission.
-
+- Show clear pending, stale, approved, rejected, and draft-created states.
+- Prevent users from acting on stale approval/draft states.
+- Improve approval workspace ergonomics for daily agent work.
 ## Later Milestones
 
 ### Knowledge and Automation

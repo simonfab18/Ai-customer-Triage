@@ -1,4 +1,4 @@
-﻿import base64
+import base64
 from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
@@ -131,7 +131,8 @@ def test_sync_gmail_deduplicates_existing_messages(client: TestClient, create_or
 
     with client.session_factory() as db:
         assert len(list(db.scalars(select(Ticket)))) == 1
-        assert len(list(db.scalars(select(JobRun)))) == 2
+        assert len(list(db.scalars(select(JobRun).where(JobRun.job_type == "gmail_import")))) == 2
+        assert len(list(db.scalars(select(JobRun).where(JobRun.job_type == "ai_triage")))) == 1
 
 
 def test_sync_rejects_inactive_import_rule(client: TestClient, create_org, monkeypatch) -> None:

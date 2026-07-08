@@ -25,6 +25,10 @@ class AITriageResultRead(BaseModel):
     ticket_id: str
     model_provider: str
     model_name: str
+    prompt_version: str
+    schema_version: str
+    latency_ms: int | None = None
+    job_run_id: str | None = None
     category: str
     priority: str
     sentiment: str
@@ -35,4 +39,18 @@ class AITriageResultRead(BaseModel):
     reasoning: str
     requires_human_review: bool
     validation_status: str
+    created_at: datetime
+
+
+class AITriageJobRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    organization_id: str
+    job_type: str
+    status: str
+    error_message: str | None = None
+    job_metadata: dict
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
     created_at: datetime
