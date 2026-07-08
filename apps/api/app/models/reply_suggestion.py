@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import uuid4
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -40,6 +40,8 @@ class ReplySuggestion(Base):
     body: Mapped[str] = mapped_column(Text, nullable=False)
     edited_body: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default=ReplySuggestionStatus.SUGGESTED.value, index=True)
+    reply_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    approved_reply_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_by: Mapped[str] = mapped_column(String(20), nullable=False, default=ReplySuggestionCreatedBy.AI.value)
     created_by_user_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     approved_by_user_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)

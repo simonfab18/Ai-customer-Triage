@@ -9,6 +9,7 @@ from app.models.ticket import Ticket, TicketCategory, TicketPriority, TicketStat
 from app.models.ticket_event import TicketEvent
 from app.schemas.ticket import TicketAssign, TicketCreate, TicketListItem, TicketUpdate
 from app.services.rbac_service import require_membership
+from app.services.ticket_lifecycle_service import transition_ticket_status
 
 
 def write_ticket_event(
@@ -95,6 +96,8 @@ def list_tickets(
     actor: AuthenticatedUser,
     status_filter: str | None = None,
     priority_filter: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
 ) -> list[TicketListItem]:
     require_membership(db, organization_id, actor)
     priority_rank = case(
@@ -108,7 +111,7 @@ def list_tickets(
         select(Ticket)
         .options(selectinload(Ticket.customer))
         .where(Ticket.organization_id == organization_id)
-        .order_by(priority_rank.asc(), Ticket.received_at.desc())
+        .order_by(priority_rank.asc(), Ticket.received_at.desc(), Ticket.id.asc())
     )
     if status_filter and status_filter != "all":
         statement = statement.where(Ticket.status == status_filter)
@@ -117,7 +120,7 @@ def list_tickets(
     if priority_filter:
         statement = statement.where(Ticket.priority == priority_filter)
 
-    tickets = db.scalars(statement).all()
+    tickets = db.scalars(statement.limit(limit).offset(offset)).all()
     return [
         TicketListItem(
             id=ticket.id,
@@ -173,7 +176,10 @@ def update_ticket(
         previous_value = getattr(ticket, field)
         if previous_value != next_value:
             changes[field] = {"from": previous_value, "to": next_value}
-            setattr(ticket, field, next_value)
+            if field == "status":
+                transition_ticket_status(ticket, next_value)
+            else:
+                setattr(ticket, field, next_value)
 
     if changes:
         write_ticket_event(db, ticket, actor, "ticket.updated", {"changes": changes})
@@ -218,7 +224,7 @@ def assign_ticket(
 def mark_ticket_spam(db: Session, organization_id: str, ticket_id: str, actor: AuthenticatedUser) -> Ticket:
     ticket = get_ticket_or_404(db, organization_id, ticket_id, actor)
     previous_status = ticket.status
-    ticket.status = TicketStatus.SPAM.value
+    transition_ticket_status(ticket, TicketStatus.SPAM.value)
     ticket.category = TicketCategory.SPAM.value
     write_ticket_event(
         db,
@@ -234,7 +240,7 @@ def mark_ticket_spam(db: Session, organization_id: str, ticket_id: str, actor: A
 def resolve_ticket(db: Session, organization_id: str, ticket_id: str, actor: AuthenticatedUser) -> Ticket:
     ticket = get_ticket_or_404(db, organization_id, ticket_id, actor)
     previous_status = ticket.status
-    ticket.status = TicketStatus.RESOLVED.value
+    transition_ticket_status(ticket, TicketStatus.RESOLVED.value)
     write_ticket_event(
         db,
         ticket,

@@ -14,6 +14,8 @@ class ReplySuggestionRead(BaseModel):
     body: str
     edited_body: str | None = None
     status: str
+    reply_version: int
+    approved_reply_version: int | None = None
     created_by: str
     created_by_user_id: str | None = None
     approved_by_user_id: str | None = None

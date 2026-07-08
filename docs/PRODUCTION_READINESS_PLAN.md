@@ -169,7 +169,7 @@ Use one scheduler owner. Do not run duplicate schedulers across multiple API or 
 |---|---|---|---|
 | 0 | Baseline and release control | Completed locally | Tests pass and environments are documented |
 | 1 | Automatic Gmail sync | In progress - M2 sync core completed | Sync health UI, operations polish, and staging soak pass |
-| 2 | Core workflow completion | In progress - M3 auto-triage completed | Lifecycle, approval, draft, and inbox polish are complete |
+| 2 | Core workflow completion | In progress - M4 workflow core completed | Operations polish and staging verification are complete |
 | 3 | Operational controls | Failures can be seen and recovered | Retry, status, jobs, alerts, and runbooks exist |
 | 4 | Security and data protection | Tenant and credential risks are reduced | Security checklist and tests pass |
 | 5 | UI and product polish | Product is understandable and trustworthy | All critical states and responsive flows pass |
@@ -458,6 +458,8 @@ When a new ticket is created:
 - Preserve previous triage versions instead of overwriting history.
 
 ## 2.2 Ticket lifecycle
+
+Status: Backend lifecycle transitions, reply-version invalidation, idempotent draft creation, and inbox pagination completed in M4.
 
 Adopt one documented lifecycle and enforce legal transitions.
 
@@ -974,7 +976,7 @@ Make onboarding repeatable beyond the first pilot.
 6. Fallback sync and expired-history recovery - completed in M2
 7. Sync status UI - backend status endpoints completed in M2; UI polish remains
 8. Automatic triage queue - completed in M3
-9. Core lifecycle and approval consistency
+9. Core lifecycle and approval consistency - completed in M4
 10. Worker retries and failed-job visibility
 11. Security tests and secret rotation
 12. End-to-end staging test

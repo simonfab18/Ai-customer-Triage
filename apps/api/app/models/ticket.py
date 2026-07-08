@@ -21,6 +21,7 @@ class TicketStatus(StrEnum):
     NEW = "new"
     OPEN = "open"
     PENDING = "pending"
+    AWAITING_APPROVAL = "awaiting_approval"
     DRAFT_CREATED = "draft_created"
     RESOLVED = "resolved"
     SPAM = "spam"

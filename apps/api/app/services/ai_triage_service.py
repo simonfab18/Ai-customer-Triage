@@ -11,10 +11,11 @@ from app.integrations.gemini.prompts import build_triage_prompt
 from app.models.ai_triage_result import AITriageResult
 from app.models.job_run import JobRun, JobRunStatus
 from app.models.reply_approval import ReplyApproval
-from app.models.ticket import Ticket, TicketCategory, TicketPriority, TicketTriageStatus
+from app.models.ticket import Ticket, TicketCategory, TicketPriority, TicketStatus, TicketTriageStatus
 from app.schemas.ai import TriageOutput
 from app.services.reply_suggestion_service import create_ai_reply_suggestion_from_triage
 from app.services.ticket_service import get_ticket_or_404, write_ticket_event
+from app.services.ticket_lifecycle_service import transition_ticket_status
 
 PROMPT_VERSION = "triage-v1"
 SCHEMA_VERSION = "triage-output-v1"
@@ -107,6 +108,8 @@ async def _execute_ticket_triage(
         ticket.category = output.category.value
         ticket.priority = output.priority.value
         ticket.sentiment = output.sentiment.value
+        if ticket.status in {TicketStatus.NEW.value, TicketStatus.OPEN.value, TicketStatus.PENDING.value}:
+            transition_ticket_status(ticket, TicketStatus.AWAITING_APPROVAL.value)
         ticket.triage_status = TicketTriageStatus.TRIAGED.value
         ticket.triage_error_message = None
         ticket.active_triage_job_id = None

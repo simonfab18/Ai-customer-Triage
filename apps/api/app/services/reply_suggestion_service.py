@@ -21,6 +21,7 @@ from app.models.ticket import TicketStatus
 from app.schemas.reply_suggestion import ReplySuggestionCreate, ReplySuggestionUpdate
 from app.services.audit_log_service import create_audit_log
 from app.services.ticket_service import get_ticket_or_404, write_ticket_event
+from app.services.ticket_lifecycle_service import ensure_ticket_allows_draft, transition_ticket_status
 
 
 def list_reply_suggestions(
@@ -88,7 +89,7 @@ def update_reply_suggestion(
         ticket,
         actor,
         "ticket.reply_suggestion_edited",
-        {"reply_suggestion_id": suggestion.id},
+        {"reply_suggestion_id": suggestion.id, "reply_version": suggestion.reply_version},
     )
     db.commit()
     db.refresh(suggestion)
@@ -116,7 +117,7 @@ def approve_reply_suggestion(
         ticket,
         actor,
         "ticket.reply_suggestion_approved",
-        {"reply_suggestion_id": suggestion.id},
+        {"reply_suggestion_id": suggestion.id, "reply_version": suggestion.reply_version},
     )
     create_audit_log(
         db,
@@ -125,7 +126,7 @@ def approve_reply_suggestion(
         action="reply_suggestion.approved",
         resource_type="reply_suggestion",
         resource_id=suggestion.id,
-        metadata={"ticket_id": suggestion.ticket_id, "ai_triage_result_id": suggestion.ai_triage_result_id},
+        metadata={"ticket_id": suggestion.ticket_id, "ai_triage_result_id": suggestion.ai_triage_result_id, "reply_version": suggestion.reply_version},
     )
     db.commit()
     db.refresh(suggestion)
@@ -149,7 +150,7 @@ def reject_reply_suggestion(
         ticket,
         actor,
         "ticket.reply_suggestion_rejected",
-        {"reply_suggestion_id": suggestion.id},
+        {"reply_suggestion_id": suggestion.id, "reply_version": suggestion.reply_version},
     )
     db.commit()
     db.refresh(suggestion)
@@ -164,16 +165,23 @@ async def create_gmail_draft_from_reply_suggestion(
 ) -> tuple[ReplySuggestion, GmailDraft]:
     suggestion = get_reply_suggestion_or_404(db, organization_id, suggestion_id)
     ticket = get_ticket_or_404(db, organization_id, suggestion.ticket_id, actor)
-    if suggestion.status == ReplySuggestionStatus.REJECTED.value:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Rejected suggestion cannot create Gmail draft")
-    if suggestion.status != ReplySuggestionStatus.APPROVED.value:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reply suggestion must be approved first")
-
     existing_draft = db.scalar(
         select(GmailDraft).where(GmailDraft.organization_id == organization_id, GmailDraft.ticket_id == ticket.id)
     )
     if existing_draft is not None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Gmail draft already exists for this ticket")
+        if suggestion.status != ReplySuggestionStatus.DRAFT_CREATED.value:
+            suggestion.status = ReplySuggestionStatus.DRAFT_CREATED.value
+            suggestion.gmail_draft_id = existing_draft.gmail_draft_id
+            db.commit()
+            db.refresh(suggestion)
+        return suggestion, existing_draft
+    ensure_ticket_allows_draft(ticket)
+    if suggestion.status == ReplySuggestionStatus.REJECTED.value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Rejected suggestion cannot create Gmail draft")
+    if suggestion.status != ReplySuggestionStatus.APPROVED.value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reply suggestion must be approved first")
+    if suggestion.approved_reply_version is not None and suggestion.approved_reply_version != suggestion.reply_version:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reply approval is stale and must be approved again")
     if not ticket.gmail_connection_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ticket is not linked to a Gmail connection")
 
@@ -211,13 +219,13 @@ async def create_gmail_draft_from_reply_suggestion(
     connection.access_token_expires_at = expires_at
     suggestion.status = ReplySuggestionStatus.DRAFT_CREATED.value
     suggestion.gmail_draft_id = draft_id
-    ticket.status = TicketStatus.DRAFT_CREATED.value
+    transition_ticket_status(ticket, TicketStatus.DRAFT_CREATED.value)
     write_ticket_event(
         db,
         ticket,
         actor,
         "ticket.reply_draft_created",
-        {"reply_suggestion_id": suggestion.id, "gmail_draft_id": draft_id},
+        {"reply_suggestion_id": suggestion.id, "gmail_draft_id": draft_id, "reply_version": suggestion.reply_version},
     )
     create_audit_log(
         db,

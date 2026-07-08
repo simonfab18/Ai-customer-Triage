@@ -4,7 +4,7 @@
 
 The project is past the initial MVP foundation. The app now has a Next.js frontend, FastAPI backend, Supabase-backed PostgreSQL database, Supabase Auth, Gmail OAuth, Gmail import, AI triage with Gemini, reply approvals, Gmail draft creation, dashboard views, role-aware navigation, and local development servers.
 
-Automatic triage pipeline is now implemented locally. The next major product improvement is M4: core workflow polish, which will tighten ticket, approval, and draft lifecycle consistency.
+Core workflow polish is now implemented locally. The next major product improvement is M5: operations and observability, which will make failures visible, retryable, and alertable.
 
 ## Completed Milestones
 
@@ -107,6 +107,28 @@ Automatic triage pipeline is now implemented locally. The next major product imp
 - Added stale-connection fallback sync discovery.
 - Added owner/admin sync status and manual history-sync queue endpoints.
 
+
+
+### Production M3: Automatic Triage Pipeline
+
+- Added automatic AI triage job enqueue after manual ticket creation, manual Gmail import, and Gmail history sync ticket creation.
+- Added ticket triage states for queued, running, succeeded, and failed triage.
+- Added one-active-job idempotency for each ticket.
+- Added prompt/schema version and latency metadata to AI triage results.
+- Added worker execution for AI triage jobs.
+- Added visible failure state and manual retry endpoint.
+- Added workspace setting support for disabling automatic triage.
+### Production M4: Core Workflow Polish
+
+- Added centralized ticket lifecycle transition validation.
+- Added `awaiting_approval` lifecycle state after successful triage.
+- Added reply version tracking for approvals and suggestions.
+- Editing approved replies now invalidates approval and requires reapproval.
+- Draft creation now checks the latest approved reply version.
+- Repeated Gmail draft creation is idempotent and returns the existing draft.
+- Closed tickets cannot create Gmail drafts.
+- Ticket list endpoints now support limit and offset pagination.
+
 ### Product UI Pass
 
 - Added modern SaaS-style landing page.
@@ -115,32 +137,32 @@ Automatic triage pipeline is now implemented locally. The next major product imp
 - Added responsive layout direction.
 - Added reusable product UI components for badges, cards, queue rows, and app navigation.
 
-## Next Recommended Milestone: M4 Core Workflow Polish
+## Next Recommended Milestone: M5 Operations and Observability
 
 ### Goal
 
-Ticket, reply approval, and Gmail draft states should stay consistent through retries, edits, and stale user actions.
+Operational failures should be visible, traceable, retryable, and alertable without relying on ad hoc log inspection.
 
 ### Recommended Production Design
 
-- Define legal ticket lifecycle transitions in one backend service.
-- Keep reply versions and approvals tied to exact content.
-- Prevent stale approved replies from creating drafts after edits.
-- Make draft creation idempotent and retry-safe.
-- Improve inbox pagination, filtering, and approval queue behavior.
+- Track job runs with attempts, timing, related resources, and sanitized errors.
+- Add structured request and worker logging with correlation IDs.
+- Surface recent failures to owner/admin users and internal operators.
+- Define retry eligibility for Gmail, Gemini, Redis, and database failures.
+- Add health/readiness signals for API, worker, queue, and dependencies.
 
 ### Backend Work
 
-- Add lifecycle transition validation and tests.
-- Add reply versioning or approval invalidation where needed.
-- Harden draft creation idempotency and failure handling.
-- Add inbox pagination/filter behavior required for production volumes.
+- Expand job-run model and retry metadata where needed.
+- Add operations/status endpoints for recent failed jobs and sync health.
+- Add structured logging context and error classification.
+- Add tests for retryable and terminal failure states.
 
 ### Frontend Work
 
-- Show clear pending, stale, approved, rejected, and draft-created states.
-- Prevent users from acting on stale approval/draft states.
-- Improve approval workspace ergonomics for daily agent work.
+- Add owner/admin operational status surfaces.
+- Show retryable failures with clear next actions.
+- Avoid exposing sensitive provider or tenant internals.
 ## Later Milestones
 
 ### Knowledge and Automation

@@ -35,8 +35,8 @@ Useful ideas that should not distract from the initial product.
 | M1. Live Gmail sync foundation | P0 | Completed - authenticated Gmail push events reach the application |
 | M2. Incremental sync and recovery | P0 | Completed locally - reliable, duplicate-safe ticket ingestion |
 | M3. Automatic triage pipeline | P0 | Completed locally - new tickets are triaged without manual action |
-| M4. Core workflow polish | P0 | Next - ticket, approval, and draft lifecycle is consistent |
-| M5. Operations and observability | P0 | Failures are visible, retryable, and alertable |
+| M4. Core workflow polish | P0 | Completed locally - ticket, approval, and draft lifecycle is consistent |
+| M5. Operations and observability | P0 | Next - failures are visible, retryable, and alertable |
 | M6. Security and tenant hardening | P0 | Production data boundaries and credentials are protected |
 | M7. Staging and pilot release | P0 | Full workflow is proven in a production-like environment |
 | M8. Agent productivity | P1 | Faster daily queue handling |
@@ -322,6 +322,9 @@ Do not store unrestricted raw model responses when they may expose unnecessary s
 ---
 
 # M4 — Core Workflow Polish
+
+Status: Completed locally in branch `codex/m4-core-workflow-polish`.
+
 
 ## Feature 12: Ticket lifecycle state machine
 

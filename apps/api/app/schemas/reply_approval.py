@@ -16,6 +16,8 @@ class ReplyApprovalRead(BaseModel):
     suggested_reply: str
     final_reply: str | None = None
     status: str
+    reply_version: int
+    approved_reply_version: int | None = None
     approved_by_user_id: str | None = None
     approved_at: datetime | None = None
     gmail_draft_id: str | None = None

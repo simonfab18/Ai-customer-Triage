@@ -30,8 +30,10 @@ def read_tickets(
     current_user: CurrentUser,
     status_filter: str | None = Query(default=None, alias="status"),
     priority_filter: str | None = Query(default=None, alias="priority"),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
 ):
-    return list_tickets(db, organization_id, current_user, status_filter, priority_filter)
+    return list_tickets(db, organization_id, current_user, status_filter, priority_filter, limit, offset)
 
 
 @router.post("", response_model=TicketRead, status_code=status.HTTP_201_CREATED)

@@ -73,7 +73,8 @@ Current limitation:
   - high
   - medium
   - low
-- Tickets can be listed, searched, filtered, assigned, marked as spam, and resolved.
+- Tickets can be listed with pagination, searched, filtered, assigned, marked as spam, and resolved.
+- Ticket status changes are validated through a centralized lifecycle helper.
 - Ticket detail shows the original email, AI result, reply suggestion, and lifecycle actions.
 
 ## AI Triage
@@ -101,6 +102,8 @@ Current limitation:
 
 - AI-generated replies are visible to agents.
 - Agents can edit suggestions.
+- Editing an approved reply invalidates approval and requires reapproval before draft creation.
+- Reply suggestions and approvals track reply versions.
 - Agents can approve suggestions.
 - Agents can reject suggestions.
 - Approved suggestions record the approving user and approval time.
@@ -112,7 +115,7 @@ Current limitation:
 - Gmail drafts are created only from approved reply suggestions.
 - Drafts are created in the related Gmail thread when possible.
 - Gmail draft IDs are stored.
-- Duplicate draft creation is blocked.
+- Duplicate draft creation is idempotent and returns the existing draft.
 - Ticket status becomes `draft_created` after draft creation.
 - The UI shows draft creation state/result.
 
