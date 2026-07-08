@@ -66,3 +66,64 @@ alembic upgrade head
 ```
 
 The app still supports local SQLite startup for development, but production and shared Supabase databases should use migrations explicitly.
+
+## Environment separation
+
+Use three separate environment profiles:
+
+| Environment | Purpose | Required separation |
+|---|---|---|
+| Development | Local engineering and tests | Local `.env`, local SQLite only for quick testing, local Redis or Docker Redis |
+| Staging | Production-like release validation | Separate Supabase project or isolated staging database, separate Redis, separate Google OAuth redirect, separate Pub/Sub topic and subscription |
+| Production | Pilot and customer traffic | Production Supabase database, production Redis, production Google OAuth app/resources, production-only secret store |
+
+Staging must not share Gmail Pub/Sub topics, subscriptions, OAuth credentials, database, Redis, or encryption keys with production.
+
+## Startup validation
+
+The API and worker validate production-like settings when `APP_ENV` is `staging` or `production`. Startup fails fast when required values are missing or unsafe values are present.
+
+Required in staging and production:
+
+- `DATABASE_URL`: Supabase/Postgres connection string. SQLite is rejected outside local development.
+- `REDIS_URL`: worker broker/backend connection.
+- `ENCRYPTION_KEY`: production-managed secret, not `dev-only-change-me`.
+- `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`.
+- `SUPABASE_JWKS_URL` or `SUPABASE_JWT_SECRET`.
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`.
+- `GOOGLE_CLOUD_PROJECT_ID`, `GOOGLE_PUBSUB_TOPIC`, `GOOGLE_PUBSUB_SUBSCRIPTION`.
+- `PUBSUB_EXPECTED_AUDIENCE`, `PUBSUB_SERVICE_ACCOUNT_EMAIL`.
+- `GEMINI_API_KEY`, `GEMINI_MODEL`.
+- `FRONTEND_ORIGIN`, `API_CORS_ORIGINS`.
+- `WORKER_CONCURRENCY`, `SYNC_FALLBACK_INTERVAL_MINUTES`, `WATCH_RENEWAL_SCHEDULE`.
+
+Forbidden in staging and production:
+
+- `DEBUG=true`
+- `AUTH_ALLOW_UNVERIFIED_JWT=true`
+- `CELERY_TASK_ALWAYS_EAGER=true`
+- `API_CORS_ORIGINS=*`
+- SQLite `DATABASE_URL`
+- Development encryption keys
+
+`ERROR_TRACKING_DSN` is optional until the observability milestone, but it is included in the settings model so staging and production can configure it without code changes.
+
+## Migration validation
+
+Every schema change must include an Alembic migration. CI validates migrations with:
+
+```powershell
+cd apps/api
+alembic upgrade head
+alembic downgrade base
+alembic upgrade head
+```
+
+Production deployments should run:
+
+```powershell
+cd apps/api
+alembic upgrade head
+```
+
+before starting the new API and worker release.

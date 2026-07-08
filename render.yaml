@@ -5,6 +5,7 @@ services:
     rootDir: apps/api
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
+    preDeployCommand: alembic upgrade head
     envVars:
       - key: APP_ENV
         value: staging
@@ -12,8 +13,20 @@ services:
         value: "false"
       - key: API_CORS_ORIGINS
         value: https://ai-customer-support-triage-response.vercel.app
+      - key: FRONTEND_ORIGIN
+        value: https://ai-customer-support-triage-response.vercel.app
+      - key: LOGGING_LEVEL
+        value: INFO
+      - key: ERROR_TRACKING_DSN
+        sync: false
       - key: CELERY_TASK_ALWAYS_EAGER
-        value: "true"
+        value: "false"
+      - key: WORKER_CONCURRENCY
+        value: "2"
+      - key: SYNC_FALLBACK_INTERVAL_MINUTES
+        value: "15"
+      - key: WATCH_RENEWAL_SCHEDULE
+        value: "0 3 * * *"
       - key: DATABASE_URL
         sync: false
       - key: REDIS_URL
@@ -24,11 +37,11 @@ services:
       - key: ENCRYPTION_KEY
         sync: false
       - key: SUPABASE_URL
-        value: https://gvpftpnyqeancxugyxqf.supabase.co
+        sync: false
       - key: SUPABASE_PUBLISHABLE_KEY
-        value: sb_publishable_zwWWL_oXWiK41Xj_e0-AtA_R0gspHmC
+        sync: false
       - key: SUPABASE_JWKS_URL
-        value: https://gvpftpnyqeancxugyxqf.supabase.co/auth/v1/.well-known/jwks.json
+        sync: false
       - key: SUPABASE_SECRET_KEY
         sync: false
       - key: GOOGLE_CLIENT_ID
@@ -37,6 +50,16 @@ services:
         sync: false
       - key: GOOGLE_REDIRECT_URI
         value: https://ai-customer-support-triage-response.onrender.com/v1/gmail/oauth/callback
+      - key: GOOGLE_CLOUD_PROJECT_ID
+        sync: false
+      - key: GOOGLE_PUBSUB_TOPIC
+        sync: false
+      - key: GOOGLE_PUBSUB_SUBSCRIPTION
+        sync: false
+      - key: PUBSUB_EXPECTED_AUDIENCE
+        value: https://ai-customer-support-triage-response.onrender.com/v1/webhooks/google/gmail
+      - key: PUBSUB_SERVICE_ACCOUNT_EMAIL
+        sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
@@ -49,7 +72,7 @@ services:
     env: docker
     rootDir: apps/api
     dockerfilePath: ./Dockerfile
-    dockerCommand: celery -A app.worker.celery_app.celery_app worker --loglevel=info
+    dockerCommand: celery -A app.worker.celery_app.celery_app worker --loglevel=info --concurrency=2
     envVars:
       - key: APP_ENV
         value: staging
@@ -57,8 +80,20 @@ services:
         value: "false"
       - key: API_CORS_ORIGINS
         value: https://ai-customer-support-triage-response.vercel.app
+      - key: FRONTEND_ORIGIN
+        value: https://ai-customer-support-triage-response.vercel.app
+      - key: LOGGING_LEVEL
+        value: INFO
+      - key: ERROR_TRACKING_DSN
+        sync: false
       - key: CELERY_TASK_ALWAYS_EAGER
         value: "false"
+      - key: WORKER_CONCURRENCY
+        value: "2"
+      - key: SYNC_FALLBACK_INTERVAL_MINUTES
+        value: "15"
+      - key: WATCH_RENEWAL_SCHEDULE
+        value: "0 3 * * *"
       - key: DATABASE_URL
         sync: false
       - key: REDIS_URL
@@ -69,11 +104,11 @@ services:
       - key: ENCRYPTION_KEY
         sync: false
       - key: SUPABASE_URL
-        value: https://gvpftpnyqeancxugyxqf.supabase.co
+        sync: false
       - key: SUPABASE_PUBLISHABLE_KEY
-        value: sb_publishable_zwWWL_oXWiK41Xj_e0-AtA_R0gspHmC
+        sync: false
       - key: SUPABASE_JWKS_URL
-        value: https://gvpftpnyqeancxugyxqf.supabase.co/auth/v1/.well-known/jwks.json
+        sync: false
       - key: SUPABASE_SECRET_KEY
         sync: false
       - key: GOOGLE_CLIENT_ID
@@ -82,6 +117,16 @@ services:
         sync: false
       - key: GOOGLE_REDIRECT_URI
         value: https://ai-customer-support-triage-response.onrender.com/v1/gmail/oauth/callback
+      - key: GOOGLE_CLOUD_PROJECT_ID
+        sync: false
+      - key: GOOGLE_PUBSUB_TOPIC
+        sync: false
+      - key: GOOGLE_PUBSUB_SUBSCRIPTION
+        sync: false
+      - key: PUBSUB_EXPECTED_AUDIENCE
+        value: https://ai-customer-support-triage-response.onrender.com/v1/webhooks/google/gmail
+      - key: PUBSUB_SERVICE_ACCOUNT_EMAIL
+        sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
@@ -92,4 +137,3 @@ services:
   - type: redis
     name: support-triage-redis
     ipAllowList: []
-

@@ -75,3 +75,70 @@ Before a real launch:
 - Set `CELERY_TASK_ALWAYS_EAGER=false` and run a separate worker service.
 - Restrict `API_CORS_ORIGINS` to the deployed frontend domain.
 - Run `alembic upgrade head` before starting the deployed API and worker.
+
+## Release control
+
+Use pull requests for changes to `main`, require CI to pass, and tag deployable releases. Date-based tags are acceptable for the current project stage, for example:
+
+```powershell
+git tag release-2026-07-08.1
+git push origin release-2026-07-08.1
+```
+
+A release candidate is ready for staging only after:
+
+- Backend Ruff passes.
+- Backend tests pass.
+- Alembic upgrade, downgrade, and upgrade validation passes.
+- Frontend lint, typecheck, and production build pass.
+- Backend and frontend container images build.
+- Docker Compose configuration validates.
+- Staging environment variables are confirmed separate from production.
+
+## Deployment order
+
+1. Confirm the release tag or commit SHA.
+2. Confirm staging or production secret-store values.
+3. Build the frontend and backend images from the repository.
+4. Run `alembic upgrade head` against the target database.
+5. Deploy the API.
+6. Deploy the worker.
+7. Deploy the frontend.
+8. Check `/health` and `/v1/status`.
+9. Run a smoke test: sign in, load organizations, view Gmail status, list tickets.
+
+## Rollback procedure
+
+Frontend rollback:
+
+1. Promote the previous known-good Vercel deployment.
+2. Confirm `NEXT_PUBLIC_API_BASE_URL` still points at the intended API environment.
+3. Smoke test login and the app shell.
+
+API rollback:
+
+1. Redeploy the previous known-good backend image or release tag.
+2. Confirm the API starts with the current environment settings.
+3. Check `/health` and `/v1/status`.
+4. Review logs for startup validation failures.
+
+Worker rollback:
+
+1. Stop the current worker release.
+2. Start the previous known-good worker image or release tag.
+3. Confirm it uses the same Redis and database as the API environment.
+4. Watch job logs for retry storms or repeated failures.
+
+Database rollback:
+
+1. Prefer forward fixes for non-destructive migrations.
+2. If rollback is required, back up the target database first.
+3. Run the specific Alembic downgrade only after confirming data-loss risk.
+4. Redeploy API and worker versions compatible with the downgraded schema.
+
+## Branch and ownership controls
+
+- Protect `main` in the repository host.
+- Require pull requests and passing CI before merge.
+- Use `OWNERS.md` to identify reviewers for critical modules.
+- Do not deploy directly from unreviewed local changes.
