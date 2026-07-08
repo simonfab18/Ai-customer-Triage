@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+﻿from fastapi import APIRouter
 
 from app.api.routes.ai_triage import router as ai_triage_router
 from app.api.routes.audit_logs import router as audit_logs_router
@@ -13,6 +13,7 @@ from app.api.routes.reply_approvals import router as reply_approvals_router
 from app.api.routes.reply_suggestions import router as reply_suggestions_router
 from app.api.routes.status import router as status_router
 from app.api.routes.tickets import router as tickets_router
+from app.api.routes.webhooks import router as webhooks_router
 from app.api.routes.workspace_settings import router as workspace_settings_router
 
 api_router = APIRouter()
@@ -30,3 +31,4 @@ api_router.include_router(ai_triage_router, prefix="/v1")
 api_router.include_router(audit_logs_router, prefix="/v1")
 api_router.include_router(reply_suggestions_router, prefix="/v1")
 api_router.include_router(reply_approvals_router, prefix="/v1")
+api_router.include_router(webhooks_router, prefix="/v1")

@@ -127,3 +127,29 @@ alembic upgrade head
 ```
 
 before starting the new API and worker release.
+
+## Gmail Push Notification Foundation
+
+M1 adds the backend foundation for Gmail push notifications and Gmail watch renewal.
+
+Configured non-secret Google Cloud values for the current staging project:
+
+- `GOOGLE_CLOUD_PROJECT_ID`: `customer-support-triage-501408`
+- `GOOGLE_PUBSUB_TOPIC`: `projects/customer-support-triage-501408/topics/gmail-notifications`
+- `GOOGLE_PUBSUB_SUBSCRIPTION`: `gmail-notifications-sub`
+- `PUBSUB_EXPECTED_AUDIENCE`: `https://ai-customer-support-triage-response.onrender.com/v1/webhooks/google/gmail`
+- `PUBSUB_SERVICE_ACCOUNT_EMAIL`: `pub-sub-push-invoker@customer-support-triage-501408.iam.gserviceaccount.com`
+
+The Gmail API publisher principal must have `Pub/Sub Publisher` on the topic:
+
+```text
+gmail-api-push@system.gserviceaccount.com
+```
+
+The webhook endpoint is:
+
+```text
+POST https://ai-customer-support-triage-response.onrender.com/v1/webhooks/google/gmail
+```
+
+This milestone acknowledges authenticated Pub/Sub notifications and records a sync event. Gmail history processing and ticket ingestion from Pub/Sub notifications are intentionally left for M2.

@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Request, Response, status
+﻿from fastapi import APIRouter, Request, Response, status
 
 from app.api.deps import CurrentUser, DbSession
 from app.schemas.gmail import (
     GmailConnectionRead,
     GmailOAuthCallbackRead,
     GmailOAuthStartRead,
+    GmailSyncEventRead,
+    GmailWatchActionRead,
     MailImportRuleRead,
     MailImportRuleUpdate,
 )
@@ -16,6 +18,7 @@ from app.services.gmail_connection_service import (
     start_gmail_oauth,
     update_import_rule,
 )
+from app.services.gmail_watch_service import list_sync_events, register_gmail_watch, renew_gmail_watch
 
 router = APIRouter(tags=["gmail"])
 
@@ -65,6 +68,42 @@ def delete_connection(
 ):
     revoke_gmail_connection(db, organization_id, connection_id, current_user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/orgs/{organization_id}/gmail/connections/{connection_id}/watch/register",
+    response_model=GmailWatchActionRead,
+)
+async def register_watch(
+    organization_id: str,
+    connection_id: str,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    connection, event = await register_gmail_watch(db, organization_id, connection_id, current_user)
+    return GmailWatchActionRead(connection=connection, event=event)
+
+
+@router.post(
+    "/orgs/{organization_id}/gmail/connections/{connection_id}/watch/renew",
+    response_model=GmailWatchActionRead,
+)
+async def renew_watch(
+    organization_id: str,
+    connection_id: str,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    connection, event = await renew_gmail_watch(db, organization_id, connection_id, current_user)
+    return GmailWatchActionRead(connection=connection, event=event)
+
+
+@router.get(
+    "/orgs/{organization_id}/gmail/sync-events",
+    response_model=list[GmailSyncEventRead],
+)
+def read_sync_events(organization_id: str, db: DbSession, current_user: CurrentUser):
+    return list_sync_events(db, organization_id, current_user)
 
 
 @router.get(

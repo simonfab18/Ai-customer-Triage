@@ -3,6 +3,7 @@
 from app.api.deps import AuthenticatedUser
 from app.db.session import SessionLocal
 from app.services.email_import_service import run_gmail_import_job
+from app.services.gmail_watch_service import renew_gmail_watch
 from app.worker.celery_app import celery_app
 
 
@@ -29,5 +30,22 @@ def sync_gmail_connection_task(
             )
         )
         return job.id
+    finally:
+        db.close()
+
+
+@celery_app.task(name="gmail.renew_watch")
+def renew_gmail_watch_task(organization_id: str, connection_id: str) -> str:
+    db = SessionLocal()
+    try:
+        connection, event = asyncio.run(
+            renew_gmail_watch(
+                db,
+                organization_id,
+                connection_id,
+                actor=None,
+            )
+        )
+        return event.id or connection.id
     finally:
         db.close()

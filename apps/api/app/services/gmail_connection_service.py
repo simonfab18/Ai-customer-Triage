@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+﻿from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 
 from fastapi import HTTPException, status
@@ -19,6 +19,7 @@ from app.models.mail_import_rule import MailImportRule
 from app.models.member import MemberRole
 from app.schemas.gmail import MailImportRuleUpdate
 from app.services.audit_log_service import create_audit_log
+from app.services.gmail_watch_service import mark_connection_disconnected_for_sync, register_gmail_watch_for_connection
 from app.services.rbac_service import require_membership, require_role
 
 OAUTH_STATE_TTL_MINUTES = 10
@@ -87,6 +88,8 @@ async def complete_gmail_oauth(
             access_token_expires_at=token_expiry_from_seconds(token_response.get("expires_in")),
             scopes=scopes,
             status="active",
+            sync_status="connecting",
+            watch_status="connecting",
         )
         db.add(connection)
         db.flush()
@@ -98,6 +101,7 @@ async def complete_gmail_oauth(
                 is_active=True,
             )
         )
+        db.flush()
     else:
         connection = existing
         connection.connected_by_user_id = oauth_state.user_id
@@ -106,6 +110,11 @@ async def complete_gmail_oauth(
         connection.access_token_expires_at = token_expiry_from_seconds(token_response.get("expires_in"))
         connection.scopes = scopes
         connection.status = "active"
+        connection.sync_status = "connecting"
+        connection.watch_status = "connecting"
+        connection.watch_error = None
+        connection.disconnected_at = None
+        db.flush()
 
     create_audit_log(
         db,
@@ -120,9 +129,15 @@ async def complete_gmail_oauth(
             "gmail_email": gmail_email,
             "google_account_id": google_account_id,
             "scopes": scopes,
-            "refresh_token": refresh_token,
-            "access_token": access_token,
         },
+    )
+    await register_gmail_watch_for_connection(
+        db,
+        connection,
+        access_token,
+        actor_user_id=oauth_state.user_id,
+        trigger_type="watch_register",
+        commit=False,
     )
     db.delete(oauth_state)
     db.commit()
@@ -155,7 +170,16 @@ def revoke_gmail_connection(
     connection = db.get(GmailConnection, connection_id)
     if connection is None or connection.organization_id != organization_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gmail connection not found")
-    connection.status = "revoked"
+    mark_connection_disconnected_for_sync(connection)
+    create_audit_log(
+        db,
+        organization_id=organization_id,
+        actor_user_id=actor.id,
+        action="gmail.connection.disconnected",
+        resource_type="gmail_connection",
+        resource_id=connection.id,
+        metadata={"gmail_email": connection.gmail_email},
+    )
     db.commit()
 
 

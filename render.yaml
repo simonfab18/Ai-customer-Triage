@@ -51,15 +51,15 @@ services:
       - key: GOOGLE_REDIRECT_URI
         value: https://ai-customer-support-triage-response.onrender.com/v1/gmail/oauth/callback
       - key: GOOGLE_CLOUD_PROJECT_ID
-        sync: false
+        value: customer-support-triage-501408
       - key: GOOGLE_PUBSUB_TOPIC
-        sync: false
+        value: projects/customer-support-triage-501408/topics/gmail-notifications
       - key: GOOGLE_PUBSUB_SUBSCRIPTION
-        sync: false
+        value: gmail-notifications-sub
       - key: PUBSUB_EXPECTED_AUDIENCE
         value: https://ai-customer-support-triage-response.onrender.com/v1/webhooks/google/gmail
       - key: PUBSUB_SERVICE_ACCOUNT_EMAIL
-        sync: false
+        value: pub-sub-push-invoker@customer-support-triage-501408.iam.gserviceaccount.com
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
@@ -118,15 +118,15 @@ services:
       - key: GOOGLE_REDIRECT_URI
         value: https://ai-customer-support-triage-response.onrender.com/v1/gmail/oauth/callback
       - key: GOOGLE_CLOUD_PROJECT_ID
-        sync: false
+        value: customer-support-triage-501408
       - key: GOOGLE_PUBSUB_TOPIC
-        sync: false
+        value: projects/customer-support-triage-501408/topics/gmail-notifications
       - key: GOOGLE_PUBSUB_SUBSCRIPTION
-        sync: false
+        value: gmail-notifications-sub
       - key: PUBSUB_EXPECTED_AUDIENCE
         value: https://ai-customer-support-triage-response.onrender.com/v1/webhooks/google/gmail
       - key: PUBSUB_SERVICE_ACCOUNT_EMAIL
-        sync: false
+        value: pub-sub-push-invoker@customer-support-triage-501408.iam.gserviceaccount.com
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL

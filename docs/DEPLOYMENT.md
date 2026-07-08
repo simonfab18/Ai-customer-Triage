@@ -142,3 +142,17 @@ Database rollback:
 - Require pull requests and passing CI before merge.
 - Use `OWNERS.md` to identify reviewers for critical modules.
 - Do not deploy directly from unreviewed local changes.
+
+## Gmail Push Deployment Setup
+
+Before validating M1 in staging:
+
+1. Confirm the backend API is deployed at `https://ai-customer-support-triage-response.onrender.com`.
+2. Confirm the Pub/Sub push endpoint is configured as `https://ai-customer-support-triage-response.onrender.com/v1/webhooks/google/gmail`.
+3. Configure the push subscription to use OIDC authentication with `pub-sub-push-invoker@customer-support-triage-501408.iam.gserviceaccount.com`.
+4. Set the push audience to the full webhook URL.
+5. Confirm the Gmail publisher service account has `Pub/Sub Publisher` on `projects/customer-support-triage-501408/topics/gmail-notifications`.
+6. Deploy the API and worker after running `alembic upgrade head`.
+7. Connect or reconnect Gmail; the OAuth callback should register a Gmail watch and store the returned `historyId` and expiration.
+
+M1 does not import Gmail history from notifications. A successful push notification should receive a fast `200` response and create a `gmail_sync_events` record for known active connections.

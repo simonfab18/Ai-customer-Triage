@@ -104,9 +104,11 @@ def test_oauth_callback_creates_connection_with_encrypted_refresh_token(
         assert audit_log is not None
         assert audit_log.action == "gmail.connection.connected"
         assert audit_log.resource_id == connection.id
-        assert audit_log.audit_metadata["refresh_token"] == "[REDACTED]"
-        assert audit_log.audit_metadata["access_token"] == "[REDACTED]"
+        assert "refresh_token" not in audit_log.audit_metadata
+        assert "access_token" not in audit_log.audit_metadata
         assert audit_log.audit_metadata["gmail_email"] == "support@example.com"
+        assert connection.watch_status == "not_configured"
+        assert connection.sync_status == "degraded"
 
 
 def test_oauth_callback_rejects_invalid_state(client: TestClient) -> None:

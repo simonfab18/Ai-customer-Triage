@@ -10,6 +10,15 @@ GMAIL_API_BASE_URL = "https://gmail.googleapis.com/gmail/v1"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 
+def gmail_expiration_from_millis(value: str | int | None) -> datetime | None:
+    if value is None:
+        return None
+    try:
+        return datetime.fromtimestamp(int(value) / 1000, UTC)
+    except (TypeError, ValueError, OSError):
+        return None
+
+
 async def refresh_gmail_access_token(refresh_token: str) -> tuple[str, datetime | None]:
     if not settings.google_client_id or not settings.google_client_secret:
         raise HTTPException(
@@ -18,7 +27,7 @@ async def refresh_gmail_access_token(refresh_token: str) -> tuple[str, datetime 
         )
 
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
+        async with httpx.AsyncClient(timeout=15, trust_env=False) as client:
             response = await client.post(
                 GOOGLE_TOKEN_URL,
                 data={
@@ -43,6 +52,35 @@ async def refresh_gmail_access_token(refresh_token: str) -> tuple[str, datetime 
     return body["access_token"], expires_at
 
 
+async def watch_gmail_mailbox(
+    access_token: str,
+    topic_name: str,
+    label_ids: list[str] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {"topicName": topic_name}
+    if label_ids:
+        payload["labelIds"] = label_ids
+        payload["labelFilterBehavior"] = "include"
+
+    try:
+        async with httpx.AsyncClient(timeout=20, trust_env=False) as client:
+            response = await client.post(
+                f"{GMAIL_API_BASE_URL}/users/me/watch",
+                json=payload,
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not reach Gmail watch endpoint from the API server",
+        ) from exc
+
+    if response.status_code >= 400:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Gmail watch registration failed")
+
+    return response.json()
+
+
 async def list_gmail_message_ids(
     access_token: str,
     label_ids: list[str],
@@ -56,7 +94,7 @@ async def list_gmail_message_ids(
         params["q"] = "is:unread"
 
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with httpx.AsyncClient(timeout=20, trust_env=False) as client:
             response = await client.get(
                 f"{GMAIL_API_BASE_URL}/users/me/messages",
                 params=params,
@@ -76,7 +114,7 @@ async def list_gmail_message_ids(
 
 async def get_gmail_message(access_token: str, message_id: str) -> dict[str, Any]:
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with httpx.AsyncClient(timeout=20, trust_env=False) as client:
             response = await client.get(
                 f"{GMAIL_API_BASE_URL}/users/me/messages/{message_id}",
                 params={"format": "full"},
@@ -93,13 +131,14 @@ async def get_gmail_message(access_token: str, message_id: str) -> dict[str, Any
 
     return response.json()
 
+
 async def create_gmail_draft(access_token: str, raw_message: str, thread_id: str | None = None) -> dict[str, Any]:
     message: dict[str, Any] = {"raw": raw_message}
     if thread_id:
         message["threadId"] = thread_id
 
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with httpx.AsyncClient(timeout=20, trust_env=False) as client:
             response = await client.post(
                 f"{GMAIL_API_BASE_URL}/users/me/drafts",
                 json={"message": message},

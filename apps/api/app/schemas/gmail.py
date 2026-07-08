@@ -1,4 +1,5 @@
-from datetime import datetime
+﻿from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
@@ -25,8 +26,51 @@ class GmailConnectionRead(BaseModel):
     scopes: str
     status: str
     last_sync_at: datetime | None = None
+    gmail_history_id: str | None = None
+    watch_expires_at: datetime | None = None
+    last_notification_at: datetime | None = None
+    last_sync_started_at: datetime | None = None
+    last_successful_sync_at: datetime | None = None
+    sync_status: str
+    sync_error_code: str | None = None
+    sync_error_message: str | None = None
+    consecutive_sync_failures: int
+    watch_status: str
+    watch_error: str | None = None
+    disconnected_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class GmailSyncEventRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    organization_id: str
+    gmail_connection_id: str | None = None
+    trigger_type: str
+    status: str
+    pubsub_message_id: str | None = None
+    notification_history_id: str | None = None
+    start_history_id: str | None = None
+    end_history_id: str | None = None
+    messages_seen: int
+    messages_imported: int
+    messages_skipped: int
+    tickets_created: int
+    tickets_updated: int
+    duration_ms: int | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+    sync_metadata: dict[str, Any]
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    created_at: datetime
+
+
+class GmailWatchActionRead(BaseModel):
+    connection: GmailConnectionRead
+    event: GmailSyncEventRead
 
 
 class MailImportRuleRead(BaseModel):
@@ -49,3 +93,7 @@ class MailImportRuleUpdate(BaseModel):
     spam_label_id: str | None = None
     import_unread_only: bool | None = None
     is_active: bool | None = None
+
+
+class GmailWebhookAcceptedRead(BaseModel):
+    status: str
