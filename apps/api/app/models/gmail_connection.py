@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+﻿from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
@@ -24,6 +24,10 @@ class GmailConnection(Base):
     gmail_email: Mapped[str] = mapped_column(String(320), nullable=False)
     google_account_id: Mapped[str] = mapped_column(String(160), nullable=False, index=True)
     encrypted_refresh_token: Mapped[str] = mapped_column(String(2048), nullable=False)
+    token_key_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    reauthorization_required_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reauthorization_reason: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    last_token_error_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     access_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     scopes: Mapped[str] = mapped_column(String(1000), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active", index=True)

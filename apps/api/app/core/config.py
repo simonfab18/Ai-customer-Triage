@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     operations_alert_owner: str = "platform"
     operations_runbook_base_url: str | None = None
     operations_failure_alert_threshold: int = 3
+    rate_limit_enabled: bool = True
+    rate_limit_default_limit: int = 120
+    rate_limit_default_window_seconds: int = 60
+    rate_limit_sensitive_limit: int = 10
+    rate_limit_sensitive_window_seconds: int = 60
+    max_request_body_bytes: int = 1048576
+    encryption_key_version: int = 1
     worker_concurrency: int = 2
     sync_fallback_interval_minutes: int = 15
     watch_renewal_schedule: str = "0 3 * * *"
@@ -98,6 +105,10 @@ class Settings(BaseSettings):
             "WATCH_RENEWAL_SCHEDULE": self.watch_renewal_schedule,
             "RELEASE_VERSION": self.release_version,
             "OPERATIONS_ALERT_OWNER": self.operations_alert_owner,
+            "RATE_LIMIT_SENSITIVE_LIMIT": self.rate_limit_sensitive_limit,
+            "RATE_LIMIT_SENSITIVE_WINDOW_SECONDS": self.rate_limit_sensitive_window_seconds,
+            "MAX_REQUEST_BODY_BYTES": self.max_request_body_bytes,
+            "ENCRYPTION_KEY_VERSION": self.encryption_key_version,
         }
         missing = [name for name, value in required_values.items() if not value]
         if missing:

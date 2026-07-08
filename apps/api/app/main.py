@@ -57,6 +57,18 @@ def create_app() -> FastAPI:
     async def request_logging_middleware(request: Request, call_next):
         request_id = request.headers.get("x-request-id") or new_request_id()
         request.state.request_id = request_id
+        content_length = request.headers.get("content-length")
+        try:
+            request_size = int(content_length) if content_length else 0
+        except ValueError:
+            request_size = 0
+        if request_size > settings.max_request_body_bytes:
+            return JSONResponse(
+                status_code=413,
+                content={"detail": "Request body too large"},
+                headers={"x-request-id": request_id},
+            )
+
         token = set_request_context(request_id)
         started = perf_counter()
         try:
@@ -65,6 +77,12 @@ def create_app() -> FastAPI:
             duration_ms = int((perf_counter() - started) * 1000)
             reset_request_context(token)
         response.headers["x-request-id"] = request_id
+        response.headers["x-content-type-options"] = "nosniff"
+        response.headers["x-frame-options"] = "DENY"
+        response.headers["referrer-policy"] = "no-referrer"
+        response.headers["permissions-policy"] = "geolocation=(), microphone=(), camera=()"
+        if settings.is_production_like:
+            response.headers["strict-transport-security"] = "max-age=31536000; includeSubDomains"
         logger.info(
             "API request completed",
             extra={

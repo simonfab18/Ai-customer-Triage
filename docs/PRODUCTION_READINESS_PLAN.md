@@ -171,7 +171,7 @@ Use one scheduler owner. Do not run duplicate schedulers across multiple API or 
 | 1 | Automatic Gmail sync | In progress - M2 sync core completed and M5 sync health backend added | Sync health UI and staging soak pass |
 | 2 | Core workflow completion | In progress - M4 workflow core completed and M5 operations backend added | Staging verification is complete |
 | 3 | Operational controls | Completed locally - failures can be seen, traced, and safely retried | External alert delivery, hosted runbooks, worker heartbeat, and staging verification exist |
-| 4 | Security and data protection | Tenant and credential risks are reduced | Security checklist and tests pass |
+| 4 | Security and data protection | Completed locally - tenant checks, rate limits, token lifecycle, and data procedures are in place | Staging secret rotation and backup/restore validation pass |
 | 5 | UI and product polish | Product is understandable and trustworthy | All critical states and responsive flows pass |
 | 6 | QA, staging, and performance | Release is proven outside local development | E2E, load, failure, and migration tests pass |
 | 7 | Pilot launch | Real users operate safely | Pilot checklist, monitoring, and rollback are ready |
@@ -749,6 +749,24 @@ Define:
 - Logs and monitoring contain no Gmail tokens.
 - A documented organization deletion procedure exists.
 - Backup and restore have been tested on staging.
+## Local M6 Implementation Status
+
+Completed locally in M6:
+
+- Added authorization matrix tests for owner/admin-only endpoints, agent workflow endpoints, disabled members, and cross-organization resource IDs.
+- Tightened audit-log access to owner/admin users.
+- Added rate limits for OAuth, Gmail sync/watch, triage, retry, draft creation, and member invitations.
+- Added request-size protection and standard API security headers.
+- Added Gmail token key-version metadata and recoverable `reauthorization_required` state for revoked refresh tokens.
+- Added log and operational-error redaction hardening.
+- Added `docs/SECURITY_AND_DATA_CONTROLS.md` covering secret rotation, reauthorization, disconnect semantics, export/deletion direction, retention, backup/restore, and attachment policy.
+
+Remaining before production exit:
+
+- Rotate real deployed secrets in staging/production provider dashboards.
+- Validate backup and restore in staging.
+- Replace in-memory rate limiting with Redis-backed limiting if API instances scale horizontally.
+- Implement self-serve organization export/deletion after product/legal approval.
 
 ---
 

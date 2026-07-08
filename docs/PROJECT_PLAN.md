@@ -4,7 +4,7 @@
 
 The project is past the initial MVP foundation. The app now has a Next.js frontend, FastAPI backend, Supabase-backed PostgreSQL database, Supabase Auth, Gmail OAuth, Gmail import, AI triage with Gemini, reply approvals, Gmail draft creation, dashboard views, role-aware navigation, and local development servers.
 
-Operations and observability is now implemented locally. The next major production milestone is M6: security and tenant hardening, which will deepen authorization coverage, rate limits, and credential lifecycle controls.
+Security and tenant hardening is now implemented locally. The next major production milestone is M7: staging and pilot release, which will prove the full Gmail-to-draft workflow against production-like infrastructure.
 
 ## Completed Milestones
 
@@ -138,6 +138,15 @@ Operations and observability is now implemented locally. The next major producti
 - Added sanitized error handling so tokens, authorization headers, email bodies, and prompts are not written to normal logs.
 - Added `/health/live`, `/health/ready`, and richer `/v1/status` dependency reporting.
 - Added tests for operations access, retry behavior, sync-health redaction, and health/status checks.
+### Production M6: Security and Tenant Hardening
+
+- Added authorization matrix coverage for owner/admin-only surfaces, agent workflow surfaces, disabled members, and cross-organization resource IDs.
+- Tightened audit-log access to owner/admin users.
+- Added rate limiting for OAuth, Gmail sync/watch, triage, retry, draft creation, and member invitation actions.
+- Added request body-size protection and standard API security headers.
+- Added Gmail token key-version metadata and recoverable `reauthorization_required` state for revoked refresh tokens.
+- Added redaction hardening for structured logs and operational errors.
+- Documented secret rotation, reauthorization, data export/deletion direction, retention, backup/restore, and attachment policy.
 ### Product UI Pass
 
 - Added modern SaaS-style landing page.
@@ -146,31 +155,31 @@ Operations and observability is now implemented locally. The next major producti
 - Added responsive layout direction.
 - Added reusable product UI components for badges, cards, queue rows, and app navigation.
 
-## Next Recommended Milestone: M6 Security and Tenant Hardening
+## Next Recommended Milestone: M7 Staging and Pilot Release
 
 ### Goal
 
-Production data boundaries, credentials, authorization rules, and abuse controls should be hardened before a real pilot inbox.
+The complete Gmail-to-draft workflow should be proven in a production-like staging environment before a real pilot inbox is connected.
 
 ### Recommended Production Design
 
-- Add an authorization test matrix for protected organization, Gmail, ticket, triage, approval, draft, team, audit, and operations endpoints.
-- Add rate limits for provider-facing and authentication-adjacent actions.
-- Document secret rotation, token lifecycle, reauthorization, and data export/deletion recovery paths.
-- Add redaction coverage and negative cross-organization access tests.
+- Use separate staging infrastructure for database, Redis, deployed API/worker, Google OAuth, Pub/Sub, Gmail test inbox, and Gemini.
+- Run the full Gmail notification-to-draft workflow outside local services.
+- Add an E2E release suite covering workspace creation, Gmail connection, sync, triage, approval, draft creation, audit, disconnect, reconnect, and missed-notification recovery.
+- Add pilot controls such as feature flags, allowlisted organizations, and kill switches for sync, triage, and draft creation.
 
 ### Backend Work
 
-- Add missing role allow/deny tests across protected endpoints.
-- Add per-user and per-organization rate limit enforcement for sensitive actions.
-- Harden secret/token handling documentation and failure behavior.
-- Add tests for cross-organization denial and abuse controls.
+- Configure staging services and environment variables.
+- Add and run E2E tests against staging-like dependencies.
+- Verify scheduler, worker, Redis, migrations, Pub/Sub, Gmail, Gemini, and rollback procedures.
+- Add pilot kill switches and allowlist controls where they are missing.
 
 ### Frontend Work
 
-- Show safe denial/error states for unauthorized or rate-limited actions.
-- Avoid exposing sensitive tenant/provider internals in UI responses.
-- Keep operations UI work separate from backend security hardening unless explicitly scoped.
+- Add staging-facing UI checks for Gmail connect, sync health, triage, approval, draft creation, disconnect, and reconnect.
+- Ensure pilot controls are visible to owner/admin users.
+- Confirm no mock/demo data appears in production-like dashboards.
 ## Later Milestones
 
 ### Knowledge and Automation

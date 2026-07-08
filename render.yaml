@@ -29,6 +29,20 @@
         sync: false
       - key: OPERATIONS_FAILURE_ALERT_THRESHOLD
         value: "3"
+      - key: RATE_LIMIT_ENABLED
+        value: "true"
+      - key: RATE_LIMIT_DEFAULT_LIMIT
+        value: "120"
+      - key: RATE_LIMIT_DEFAULT_WINDOW_SECONDS
+        value: "60"
+      - key: RATE_LIMIT_SENSITIVE_LIMIT
+        value: "10"
+      - key: RATE_LIMIT_SENSITIVE_WINDOW_SECONDS
+        value: "60"
+      - key: MAX_REQUEST_BODY_BYTES
+        value: "1048576"
+      - key: ENCRYPTION_KEY_VERSION
+        value: "1"
       - key: ERROR_TRACKING_DSN
         sync: false
       - key: CELERY_TASK_ALWAYS_EAGER
@@ -108,6 +122,20 @@
         sync: false
       - key: OPERATIONS_FAILURE_ALERT_THRESHOLD
         value: "3"
+      - key: RATE_LIMIT_ENABLED
+        value: "true"
+      - key: RATE_LIMIT_DEFAULT_LIMIT
+        value: "120"
+      - key: RATE_LIMIT_DEFAULT_WINDOW_SECONDS
+        value: "60"
+      - key: RATE_LIMIT_SENSITIVE_LIMIT
+        value: "10"
+      - key: RATE_LIMIT_SENSITIVE_WINDOW_SECONDS
+        value: "60"
+      - key: MAX_REQUEST_BODY_BYTES
+        value: "1048576"
+      - key: ENCRYPTION_KEY_VERSION
+        value: "1"
       - key: ERROR_TRACKING_DSN
         sync: false
       - key: CELERY_TASK_ALWAYS_EAGER

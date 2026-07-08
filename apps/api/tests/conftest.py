@@ -1,4 +1,4 @@
-import pytest
+﻿import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -8,8 +8,16 @@ from app import models  # noqa: F401
 from app.api.deps import AuthenticatedUser, get_current_user
 from app.db.base import Base
 from app.db.session import get_db
+from app.core.rate_limit import rate_limiter
 from app.main import create_app
 
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    rate_limiter.reset()
+    yield
+    rate_limiter.reset()
 
 @pytest.fixture(autouse=True)
 def stub_auto_triage_dispatch(monkeypatch):

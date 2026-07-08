@@ -1,4 +1,4 @@
-import base64
+﻿import base64
 from datetime import UTC, datetime
 from email.message import EmailMessage
 
@@ -7,7 +7,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import AuthenticatedUser
-from app.core.encryption import decrypt_secret
 from app.integrations.gmail.client import create_gmail_draft, refresh_gmail_access_token
 from app.models.ai_triage_result import AITriageResult
 from app.models.gmail_connection import GmailConnection
@@ -16,6 +15,7 @@ from app.models.reply_approval import ReplyApproval, ReplyApprovalStatus
 from app.models.ticket import TicketStatus
 from app.schemas.reply_approval import ReplyApprovalUpdate
 from app.services.audit_log_service import create_audit_log
+from app.services.gmail_token_service import refresh_connection_access_token
 from app.services.ticket_lifecycle_service import ensure_ticket_allows_draft, transition_ticket_status
 from app.services.ticket_service import get_ticket_or_404, write_ticket_event
 
@@ -183,8 +183,7 @@ async def create_gmail_draft_from_approved_suggestion(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Active Gmail connection not found")
 
     final_reply = approval.final_reply or approval.suggested_reply
-    refresh_token = decrypt_secret(connection.encrypted_refresh_token)
-    access_token, expires_at = await refresh_gmail_access_token(refresh_token)
+    access_token, expires_at = await refresh_connection_access_token(db, connection, refresh_func=refresh_gmail_access_token)
     raw_message = build_reply_raw_message(
         to_email=ticket.customer.email,
         subject=ticket.subject,

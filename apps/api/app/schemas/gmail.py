@@ -1,4 +1,4 @@
-from datetime import datetime
+﻿from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
@@ -24,6 +24,10 @@ class GmailConnectionRead(BaseModel):
     gmail_email: str
     google_account_id: str
     scopes: str
+    token_key_version: int
+    reauthorization_required_at: datetime | None = None
+    reauthorization_reason: str | None = None
+    last_token_error_at: datetime | None = None
     status: str
     last_sync_at: datetime | None = None
     gmail_history_id: str | None = None

@@ -4,6 +4,7 @@ from contextvars import ContextVar
 from datetime import UTC, datetime
 import json
 import logging
+import re
 import sys
 from typing import Any
 from uuid import uuid4
@@ -16,7 +17,23 @@ organization_id_var: ContextVar[str | None] = ContextVar("organization_id", defa
 connection_id_var: ContextVar[str | None] = ContextVar("connection_id", default=None)
 ticket_id_var: ContextVar[str | None] = ContextVar("ticket_id", default=None)
 
-SENSITIVE_KEYS = {"authorization", "access_token", "refresh_token", "encrypted_refresh_token", "prompt", "message_text", "message_html"}
+SENSITIVE_KEYS = {
+    "authorization",
+    "access_token",
+    "refresh_token",
+    "encrypted_refresh_token",
+    "prompt",
+    "message_text",
+    "message_html",
+    "client_secret",
+    "api_key",
+    "password",
+}
+SECRET_PATTERNS = (
+    re.compile(r"(?i)(authorization:\s*bearer\s+)[^\s,]+"),
+    re.compile(r"(?i)((?:access|refresh)[_-]?token[\"'=:\s]+)[^\s,}\"]+"),
+    re.compile(r"(?i)((?:client[_-]?secret|api[_-]?key|password)[\"'=:\s]+)[^\s,}\"]+"),
+)
 
 
 class JsonLogFormatter(logging.Formatter):
@@ -52,8 +69,17 @@ def _clean_payload(payload: dict[str, Any]) -> dict[str, Any]:
         if key.lower() in SENSITIVE_KEYS:
             cleaned[key] = "[REDACTED]"
         else:
-            cleaned[key] = value
+            cleaned[key] = redact_value(value)
     return cleaned
+
+
+def redact_value(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    redacted = value
+    for pattern in SECRET_PATTERNS:
+        redacted = pattern.sub(r"\1[REDACTED]", redacted)
+    return redacted
 
 
 def configure_logging() -> None:

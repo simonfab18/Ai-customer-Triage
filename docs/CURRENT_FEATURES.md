@@ -1,4 +1,4 @@
-# Current Features
+﻿# Current Features
 
 This file reflects the latest local MVP state.
 
@@ -166,6 +166,18 @@ Metrics are used by the overview and analytics UI.
 - Owner/admin users can update member roles.
 - Owner/admin users can remove members.
 
+
+## Security and Tenant Hardening
+
+- Owner/admin-only surfaces are protected for workspace settings, Gmail controls, history sync, team management, audit logs, and operations pages.
+- Cross-organization resource IDs fail closed.
+- Disabled members immediately lose organization access.
+- Sensitive actions have route-level rate limits with `429` and `Retry-After` responses.
+- API responses include standard security headers and reject oversized request bodies.
+- Gmail connections expose token key-version metadata without exposing refresh tokens.
+- Revoked Gmail refresh tokens move the connection into a recoverable `reauthorization_required` state.
+- Audit logs and structured logs redact token, secret, password, and authorization values.
+- Data-control procedures are documented in `docs/SECURITY_AND_DATA_CONTROLS.md`.
 ## Local Development
 
 Current local links:
@@ -174,4 +186,3 @@ Current local links:
 - Backend health: `http://localhost:8001/health`
 
 Current local mode uses manual server processes. Docker is available for API, Redis, and worker testing, but it is not required for everyday frontend/backend debugging.
-

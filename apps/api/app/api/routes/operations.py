@@ -1,8 +1,9 @@
 ﻿from typing import Annotated
 
-from fastapi import APIRouter, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 
 from app.api.deps import CurrentUser, DbSession
+from app.api.rate_limits import limit_retry
 from app.core.config import settings
 from app.schemas.operations import (
     OperationsFailureListRead,
@@ -61,6 +62,7 @@ def read_operations_job(
     "/orgs/{organization_id}/operations/jobs/{job_id}/retry",
     response_model=OperationsRetryRead,
     status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(limit_retry)],
 )
 def retry_operations_job(
     organization_id: str,

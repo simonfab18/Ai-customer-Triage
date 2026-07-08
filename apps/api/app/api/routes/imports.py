@@ -1,6 +1,7 @@
-﻿from fastapi import APIRouter, status
+﻿from fastapi import APIRouter, Depends, status
 
 from app.api.deps import CurrentUser, DbSession
+from app.api.rate_limits import limit_gmail_sync
 from app.schemas.imports import GmailSyncRequest, JobRunRead
 from app.services.email_import_service import get_job_run, list_recent_imports, sync_gmail_connection
 from app.services.job_queue_service import enqueue_gmail_import
@@ -11,6 +12,7 @@ router = APIRouter(tags=["imports"])
 @router.post(
     "/orgs/{organization_id}/gmail/connections/{connection_id}/sync",
     response_model=JobRunRead,
+    dependencies=[Depends(limit_gmail_sync)],
 )
 async def sync_connection(
     organization_id: str,
@@ -32,6 +34,7 @@ async def sync_connection(
     "/orgs/{organization_id}/gmail/connections/{connection_id}/sync/queue",
     response_model=JobRunRead,
     status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(limit_gmail_sync)],
 )
 def queue_sync_connection(
     organization_id: str,

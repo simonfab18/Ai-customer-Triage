@@ -37,8 +37,8 @@ Useful ideas that should not distract from the initial product.
 | M3. Automatic triage pipeline | P0 | Completed locally - new tickets are triaged without manual action |
 | M4. Core workflow polish | P0 | Completed locally - ticket, approval, and draft lifecycle is consistent |
 | M5. Operations and observability | P0 | Completed locally - failures are visible, retryable, and traceable |
-| M6. Security and tenant hardening | P0 | Next - production data boundaries and credentials are protected |
-| M7. Staging and pilot release | P0 | Full workflow is proven in a production-like environment |
+| M6. Security and tenant hardening | P0 | Completed locally - backend boundaries, rate limits, and token lifecycle are hardened |
+| M7. Staging and pilot release | P0 | Next - full workflow is proven in a production-like environment |
 | M8. Agent productivity | P1 | Faster daily queue handling |
 | M9. Knowledge and routing | P1 | More accurate replies and smarter ownership |
 | M10. Analytics and administration | P1 | Teams can measure and manage operations |
@@ -610,6 +610,24 @@ Suggested protected actions:
 
 - The team can answer what data remains after disconnect and deletion.
 - Restore from a recent staging backup succeeds.
+### Local implementation status
+
+Completed in M6 backend pass:
+
+- Added negative authorization tests for owner/admin-only surfaces, agent-allowed workflow surfaces, disabled members, and cross-organization resource IDs.
+- Tightened audit-log access to owner/admin users.
+- Added in-memory rate limits for OAuth start/callback, Gmail sync/watch, triage, retry, draft creation, and member invitations with clear `429` and `Retry-After` responses.
+- Added request body-size protection and security headers.
+- Added Gmail token key-version metadata and `reauthorization_required` recovery state for revoked refresh tokens.
+- Added redaction hardening for logs and operational errors.
+- Documented secret rotation, reauthorization, data export/deletion direction, retention, backup, restore, and attachment policy.
+
+Known remaining production follow-up:
+
+- Rotate all real staging/production secrets in the provider dashboards.
+- Move rate limiting to Redis if API instances scale horizontally.
+- Implement actual organization export/deletion endpoints after legal/product approval.
+- Run backup/restore validation in staging.
 
 ---
 

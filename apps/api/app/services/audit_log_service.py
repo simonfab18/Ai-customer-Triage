@@ -1,11 +1,12 @@
-from typing import Any
+﻿from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import AuthenticatedUser
 from app.models.audit_log import AuditLog
-from app.services.rbac_service import require_membership
+from app.models.member import MemberRole
+from app.services.rbac_service import require_role
 
 SENSITIVE_KEY_PARTS = (
     "token",
@@ -61,7 +62,7 @@ def create_audit_log(
 
 
 def list_audit_logs(db: Session, organization_id: str, actor: AuthenticatedUser) -> list[AuditLog]:
-    require_membership(db, organization_id, actor)
+    require_role(db, organization_id, actor, {MemberRole.OWNER, MemberRole.ADMIN})
     return list(
         db.scalars(
             select(AuditLog)

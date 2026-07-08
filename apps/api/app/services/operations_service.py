@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import AuthenticatedUser
 from app.core.config import settings
+from app.core.logging import redact_value
 from app.models.gmail_connection import GmailConnection
 from app.models.job_run import JobRun, JobRunStatus
 from app.models.member import MemberRole
@@ -59,6 +60,7 @@ def sanitize_error(value: object) -> str:
     message = str(value)
     for pattern in SECRET_REDACTIONS:
         message = pattern.sub(r"\1[REDACTED]", message)
+    message = redact_value(message)
     if len(message) > 1000:
         return f"{message[:1000]}..."
     return message

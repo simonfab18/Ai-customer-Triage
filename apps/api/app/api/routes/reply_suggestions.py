@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Body, HTTPException, status
+﻿from fastapi import APIRouter, Body, Depends, HTTPException, status
 
 from app.api.deps import CurrentUser, DbSession
+from app.api.rate_limits import limit_draft_creation
 from app.schemas.reply_approval import GmailDraftCreateRead, ReplyApprovalRead, ReplyApprovalUpdate
 from app.schemas.reply_suggestion import ReplySuggestionCreate, ReplySuggestionRead, ReplySuggestionUpdate
 from app.services.reply_approval_service import (
@@ -104,6 +105,7 @@ def reject_suggestion(
     "/orgs/{organization_id}/reply-suggestions/{suggestion_id}/create-gmail-draft",
     response_model=GmailDraftCreateRead,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(limit_draft_creation)],
 )
 async def create_reply_suggestion_draft(
     organization_id: str,

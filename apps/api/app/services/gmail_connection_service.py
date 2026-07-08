@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import AuthenticatedUser
+from app.core.config import settings
 from app.core.encryption import encrypt_secret
 from app.integrations.gmail.oauth import (
     build_oauth_url,
@@ -85,11 +86,15 @@ async def complete_gmail_oauth(
             gmail_email=gmail_email,
             google_account_id=google_account_id,
             encrypted_refresh_token=encrypt_secret(refresh_token),
+            token_key_version=settings.encryption_key_version,
             access_token_expires_at=token_expiry_from_seconds(token_response.get("expires_in")),
             scopes=scopes,
             status="active",
             sync_status="connecting",
             watch_status="connecting",
+            reauthorization_required_at=None,
+            reauthorization_reason=None,
+            last_token_error_at=None,
         )
         db.add(connection)
         db.flush()
@@ -107,6 +112,7 @@ async def complete_gmail_oauth(
         connection.connected_by_user_id = oauth_state.user_id
         connection.gmail_email = gmail_email
         connection.encrypted_refresh_token = encrypt_secret(refresh_token)
+        connection.token_key_version = settings.encryption_key_version
         connection.access_token_expires_at = token_expiry_from_seconds(token_response.get("expires_in"))
         connection.scopes = scopes
         connection.status = "active"
@@ -114,6 +120,9 @@ async def complete_gmail_oauth(
         connection.watch_status = "connecting"
         connection.watch_error = None
         connection.disconnected_at = None
+        connection.reauthorization_required_at = None
+        connection.reauthorization_reason = None
+        connection.last_token_error_at = None
         db.flush()
 
     create_audit_log(

@@ -1,7 +1,8 @@
-﻿from fastapi import APIRouter, HTTPException, Request, Response, status
+﻿from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DbSession
+from app.api.rate_limits import limit_gmail_sync, limit_gmail_watch, oauth_callback_rate_limit, oauth_start_rate_limit
 from app.models.gmail_sync_event import GmailSyncEvent
 from app.models.member import MemberRole
 from app.schemas.gmail import (
@@ -33,13 +34,14 @@ router = APIRouter(tags=["gmail"])
 @router.get(
     "/orgs/{organization_id}/gmail/oauth/start",
     response_model=GmailOAuthStartRead,
+    dependencies=[Depends(oauth_start_rate_limit)],
 )
 def start_oauth(organization_id: str, db: DbSession, current_user: CurrentUser):
     auth_url, state = start_gmail_oauth(db, organization_id, current_user)
     return GmailOAuthStartRead(auth_url=auth_url, state=state)
 
 
-@router.get("/gmail/oauth/callback", response_model=GmailOAuthCallbackRead)
+@router.get("/gmail/oauth/callback", response_model=GmailOAuthCallbackRead, dependencies=[Depends(oauth_callback_rate_limit)])
 async def oauth_callback(state: str, code: str, request: Request, db: DbSession):
     connection = await complete_gmail_oauth(
         db,
@@ -80,6 +82,7 @@ def delete_connection(
 @router.post(
     "/orgs/{organization_id}/gmail/connections/{connection_id}/watch/register",
     response_model=GmailWatchActionRead,
+    dependencies=[Depends(limit_gmail_watch)],
 )
 async def register_watch(
     organization_id: str,
@@ -94,6 +97,7 @@ async def register_watch(
 @router.post(
     "/orgs/{organization_id}/gmail/connections/{connection_id}/watch/renew",
     response_model=GmailWatchActionRead,
+    dependencies=[Depends(limit_gmail_watch)],
 )
 async def renew_watch(
     organization_id: str,
@@ -137,6 +141,7 @@ def read_sync_status(
     "/orgs/{organization_id}/gmail/connections/{connection_id}/history-sync/queue",
     response_model=GmailHistorySyncQueueRead,
     status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(limit_gmail_sync)],
 )
 def queue_history_sync(
     organization_id: str,

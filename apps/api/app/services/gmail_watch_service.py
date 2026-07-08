@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import AuthenticatedUser
 from app.core.config import settings
-from app.core.encryption import decrypt_secret
 from app.integrations.gmail.client import (
     gmail_expiration_from_millis,
     refresh_gmail_access_token,
@@ -18,6 +17,7 @@ from app.models.gmail_sync_event import GmailSyncEvent
 from app.models.mail_import_rule import MailImportRule
 from app.models.member import MemberRole
 from app.services.audit_log_service import create_audit_log
+from app.services.gmail_token_service import refresh_connection_access_token
 from app.services.rbac_service import require_role
 
 WATCH_LABEL_FALLBACK = "INBOX"
@@ -236,9 +236,7 @@ async def register_gmail_watch(
     if connection.status != "active":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Gmail connection is not active")
 
-    refresh_token = decrypt_secret(connection.encrypted_refresh_token)
-    access_token, expires_at = await refresh_gmail_access_token(refresh_token)
-    connection.access_token_expires_at = expires_at
+    access_token, _ = await refresh_connection_access_token(db, connection, refresh_func=refresh_gmail_access_token)
     event = await register_gmail_watch_for_connection(
         db,
         connection,
@@ -262,9 +260,7 @@ async def renew_gmail_watch(
     if connection.status != "active":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Gmail connection is not active")
 
-    refresh_token = decrypt_secret(connection.encrypted_refresh_token)
-    access_token, expires_at = await refresh_gmail_access_token(refresh_token)
-    connection.access_token_expires_at = expires_at
+    access_token, _ = await refresh_connection_access_token(db, connection, refresh_func=refresh_gmail_access_token)
     event = await register_gmail_watch_for_connection(
         db,
         connection,

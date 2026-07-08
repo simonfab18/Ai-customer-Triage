@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+﻿from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from fastapi import HTTPException, status
@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import AuthenticatedUser
 from app.core.config import settings
-from app.core.encryption import decrypt_secret
 from app.integrations.gmail.client import (
     GmailHistoryExpiredError,
     get_gmail_message,
@@ -20,6 +19,7 @@ from app.models.gmail_connection import GmailConnection
 from app.models.gmail_sync_event import GmailSyncEvent
 from app.models.mail_import_rule import MailImportRule
 from app.services.email_import_service import import_gmail_message_if_new
+from app.services.gmail_token_service import refresh_connection_access_token
 from app.services.gmail_watch_service import renew_gmail_watch
 
 SYSTEM_GMAIL_SYNC_ACTOR = AuthenticatedUser(id="system:gmail-sync", email=None)
@@ -170,9 +170,7 @@ async def _run_locked_history_sync(
     start_history_id = connection.gmail_history_id
 
     try:
-        refresh_token = decrypt_secret(connection.encrypted_refresh_token)
-        access_token, expires_at = await refresh_gmail_access_token(refresh_token)
-        connection.access_token_expires_at = expires_at
+        access_token, _ = await refresh_connection_access_token(db, connection, refresh_func=refresh_gmail_access_token)
 
         if not start_history_id:
             imported, skipped, seen, tickets_created, created_ticket_ids = await _run_reconciliation(
@@ -288,9 +286,7 @@ async def _handle_expired_history(
     event: GmailSyncEvent,
     rule: MailImportRule,
 ) -> tuple[int, int, int, int, list[str]]:
-    refresh_token = decrypt_secret(connection.encrypted_refresh_token)
-    access_token, expires_at = await refresh_gmail_access_token(refresh_token)
-    connection.access_token_expires_at = expires_at
+    access_token, _ = await refresh_connection_access_token(db, connection, refresh_func=refresh_gmail_access_token)
     imported, skipped, seen, tickets_created, created_ticket_ids = await _run_reconciliation(db, connection, rule, access_token)
     await renew_gmail_watch(db, connection.organization_id, connection.id, actor=None)
     db.flush()

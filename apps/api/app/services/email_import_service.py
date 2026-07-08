@@ -5,13 +5,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import AuthenticatedUser
-from app.core.encryption import decrypt_secret
 from app.integrations.gmail.client import get_gmail_message, list_gmail_message_ids, refresh_gmail_access_token
 from app.integrations.gmail.mapper import NormalizedGmailMessage, normalize_gmail_message
 from app.models.gmail_connection import GmailConnection
 from app.models.job_run import JobRun, JobRunStatus
 from app.models.mail_import_rule import MailImportRule
 from app.models.ticket import Ticket
+from app.services.gmail_token_service import refresh_connection_access_token
 from app.services.operations_service import ensure_job_defaults, mark_job_failed, mark_job_running, mark_job_succeeded
 from app.services.rbac_service import require_membership
 from app.services.ticket_service import get_or_create_customer, write_ticket_event
@@ -175,9 +175,7 @@ async def run_gmail_import_job(
     message_ids: list[str] = []
     created_ticket_ids: list[str] = []
     try:
-        refresh_token = decrypt_secret(connection.encrypted_refresh_token)
-        access_token, expires_at = await refresh_gmail_access_token(refresh_token)
-        connection.access_token_expires_at = expires_at
+        access_token, _ = await refresh_connection_access_token(db, connection, refresh_func=refresh_gmail_access_token)
 
         label_ids = [rule.support_label_id] if rule.support_label_id else []
         message_ids = await list_gmail_message_ids(

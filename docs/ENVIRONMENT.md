@@ -97,6 +97,7 @@ Required in staging and production:
 - `FRONTEND_ORIGIN`, `API_CORS_ORIGINS`.
 - `WORKER_CONCURRENCY`, `SYNC_FALLBACK_INTERVAL_MINUTES`, `WATCH_RENEWAL_SCHEDULE`.
 - `RELEASE_VERSION`, `OPERATIONS_ALERT_OWNER`.
+- `RATE_LIMIT_SENSITIVE_LIMIT`, `RATE_LIMIT_SENSITIVE_WINDOW_SECONDS`, `MAX_REQUEST_BODY_BYTES`, `ENCRYPTION_KEY_VERSION`.
 
 Forbidden in staging and production:
 
@@ -117,6 +118,15 @@ M5 operations and observability settings:
 - `OPERATIONS_FAILURE_ALERT_THRESHOLD`: repeated-failure threshold for alerting policy.
 
 `ERROR_TRACKING_DSN` remains optional until an external error tracking provider is connected, but the app captures API and worker exception context in structured logs now.
+M6 security and tenant-hardening settings:
+
+- `RATE_LIMIT_ENABLED`: enables route-level rate limiting for sensitive actions.
+- `RATE_LIMIT_DEFAULT_LIMIT`, `RATE_LIMIT_DEFAULT_WINDOW_SECONDS`: default limiter settings.
+- `RATE_LIMIT_SENSITIVE_LIMIT`, `RATE_LIMIT_SENSITIVE_WINDOW_SECONDS`: limiter settings for OAuth, sync, triage, retry, draft, and invite actions.
+- `MAX_REQUEST_BODY_BYTES`: maximum accepted request body size before the API returns `413`.
+- `ENCRYPTION_KEY_VERSION`: metadata version recorded on newly stored Gmail refresh tokens.
+
+See `docs/SECURITY_AND_DATA_CONTROLS.md` for rotation, reauthorization, export, deletion, retention, and backup/restore procedures.
 
 ## Migration validation
 

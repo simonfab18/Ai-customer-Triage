@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Response, status
+﻿from fastapi import APIRouter, Depends, Response, status
 
 from app.api.deps import CurrentUser, DbSession
+from app.api.rate_limits import limit_member_invite
 from app.models.member import MemberRole
 from app.schemas.member import MemberInvite, MemberRead, MemberUpdate
 from app.services.member_service import invite_member, list_members, remove_member, update_member
@@ -15,7 +16,7 @@ def read_members(organization_id: str, db: DbSession, current_user: CurrentUser)
     return list_members(db, organization_id)
 
 
-@router.post("/invite", response_model=MemberRead, status_code=status.HTTP_201_CREATED)
+@router.post("/invite", response_model=MemberRead, status_code=status.HTTP_201_CREATED, dependencies=[Depends(limit_member_invite)])
 def invite_org_member(
     organization_id: str,
     payload: MemberInvite,

@@ -1,6 +1,7 @@
-from fastapi import APIRouter, status
+﻿from fastapi import APIRouter, Depends, status
 
 from app.api.deps import CurrentUser, DbSession
+from app.api.rate_limits import limit_retry, limit_triage
 from app.schemas.ai import AITriageJobRead, AITriageResultRead
 from app.services.ai_triage_service import list_ticket_triage_results, run_ticket_triage
 from app.services.job_queue_service import enqueue_ticket_triage
@@ -12,6 +13,7 @@ router = APIRouter(tags=["ai-triage"])
     "/orgs/{organization_id}/tickets/{ticket_id}/triage",
     response_model=AITriageResultRead,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(limit_triage)],
 )
 async def triage_ticket(
     organization_id: str,
@@ -26,6 +28,7 @@ async def triage_ticket(
     "/orgs/{organization_id}/tickets/{ticket_id}/triage/retry",
     response_model=AITriageJobRead,
     status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(limit_retry)],
 )
 def retry_ticket_triage(
     organization_id: str,
