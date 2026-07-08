@@ -1,4 +1,4 @@
-﻿from datetime import UTC, datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
@@ -40,6 +40,8 @@ class GmailConnection(Base):
     watch_status: Mapped[str] = mapped_column(String(40), nullable=False, default="disconnected", index=True)
     watch_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     disconnected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sync_lock_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    sync_lock_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 

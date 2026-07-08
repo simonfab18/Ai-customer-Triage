@@ -1,11 +1,16 @@
-﻿from fastapi import APIRouter, Request, Response, status
+﻿from fastapi import APIRouter, HTTPException, Request, Response, status
+from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DbSession
+from app.models.gmail_sync_event import GmailSyncEvent
+from app.models.member import MemberRole
 from app.schemas.gmail import (
     GmailConnectionRead,
+    GmailHistorySyncQueueRead,
     GmailOAuthCallbackRead,
     GmailOAuthStartRead,
     GmailSyncEventRead,
+    GmailSyncStatusRead,
     GmailWatchActionRead,
     MailImportRuleRead,
     MailImportRuleUpdate,
@@ -19,6 +24,8 @@ from app.services.gmail_connection_service import (
     update_import_rule,
 )
 from app.services.gmail_watch_service import list_sync_events, register_gmail_watch, renew_gmail_watch
+from app.services.job_queue_service import enqueue_gmail_history_sync
+from app.services.rbac_service import require_role
 
 router = APIRouter(tags=["gmail"])
 
@@ -96,6 +103,56 @@ async def renew_watch(
 ):
     connection, event = await renew_gmail_watch(db, organization_id, connection_id, current_user)
     return GmailWatchActionRead(connection=connection, event=event)
+
+
+@router.get(
+    "/orgs/{organization_id}/gmail/connections/{connection_id}/sync-status",
+    response_model=GmailSyncStatusRead,
+)
+def read_sync_status(
+    organization_id: str,
+    connection_id: str,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    connections = list_gmail_connections(db, organization_id, current_user)
+    connection = next((item for item in connections if item.id == connection_id), None)
+    if connection is None:
+        raise HTTPException(status_code=404, detail="Gmail connection not found")
+    recent_events = list(
+        db.scalars(
+            select(GmailSyncEvent)
+            .where(
+                GmailSyncEvent.organization_id == organization_id,
+                GmailSyncEvent.gmail_connection_id == connection_id,
+            )
+            .order_by(GmailSyncEvent.created_at.desc())
+            .limit(10)
+        )
+    )
+    return GmailSyncStatusRead(connection=connection, recent_events=recent_events)
+
+
+@router.post(
+    "/orgs/{organization_id}/gmail/connections/{connection_id}/history-sync/queue",
+    response_model=GmailHistorySyncQueueRead,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def queue_history_sync(
+    organization_id: str,
+    connection_id: str,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    require_role(db, organization_id, current_user, {MemberRole.OWNER, MemberRole.ADMIN})
+    event = enqueue_gmail_history_sync(
+        db,
+        organization_id,
+        connection_id,
+        trigger_type="manual_history_sync",
+        metadata={"requested_by_user_id": current_user.id},
+    )
+    return GmailHistorySyncQueueRead(event=event)
 
 
 @router.get(

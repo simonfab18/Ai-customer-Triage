@@ -38,7 +38,12 @@ Owner/admin capabilities include workspace management, Gmail connection, and tea
 - Gmail watches can be registered after OAuth connection.
 - Gmail watch renewal has a backend service and worker task entrypoint.
 - Gmail connection responses include watch and sync status fields.
-- Authenticated Google Pub/Sub push notifications can be accepted at `/v1/webhooks/google/gmail` and recorded as sync events for known active Gmail connections.
+- Authenticated Google Pub/Sub push notifications can be accepted at `/v1/webhooks/google/gmail` and queued for Gmail history sync.
+- Gmail history sync processes `messagesAdded` changes from stored checkpoints.
+- Duplicate Gmail message IDs are skipped during live and manual import.
+- Expired Gmail history checkpoints trigger bounded reconciliation and watch re-registration.
+- Stale active connections can be discovered for fallback sync.
+- Owner/admin users can view sync status and queue a manual history sync.
 
 ## Gmail Import
 
@@ -50,7 +55,7 @@ Owner/admin capabilities include workspace management, Gmail connection, and tea
 
 Current limitation:
 
-- M1 receives and records authenticated Gmail push notifications, but it does not process Gmail history yet. New emails still require manual import until M2 adds incremental history sync and ticket creation from notifications.
+- Live sync now queues Gmail history processing on the backend; UI polish for full sync health visibility remains part of a later operations/product pass.
 
 ## Tickets
 

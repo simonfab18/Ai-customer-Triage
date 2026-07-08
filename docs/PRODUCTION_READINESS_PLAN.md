@@ -168,7 +168,7 @@ Use one scheduler owner. Do not run duplicate schedulers across multiple API or 
 | Phase | Milestone | Primary result | Exit requirement |
 |---|---|---|---|
 | 0 | Baseline and release control | Completed locally | Tests pass and environments are documented |
-| 1 | Automatic Gmail sync | In progress - M1 foundation completed | Push, history sync, renewal, and fallback work |
+| 1 | Automatic Gmail sync | In progress - M2 sync core completed | Sync health UI, operations polish, and staging soak pass |
 | 2 | Core workflow completion | Imported mail reliably reaches approval | Auto-triage and lifecycle states are complete |
 | 3 | Operational controls | Failures can be seen and recovered | Retry, status, jobs, alerts, and runbooks exist |
 | 4 | Security and data protection | Tenant and credential risks are reduced | Security checklist and tests pass |
@@ -238,7 +238,7 @@ The API and worker must fail fast when required production settings are missing.
 
 # Phase 1 — Automatic Gmail Synchronization
 
-Status: In progress. M1 completed the authenticated Pub/Sub webhook foundation, Gmail watch registration, watch renewal entrypoint, and sync-event persistence. M2 will implement Gmail history processing and recovery.
+Status: In progress. M1 completed the authenticated Pub/Sub webhook foundation, Gmail watch registration, watch renewal entrypoint, and sync-event persistence. M2 completed backend Gmail history processing, duplicate-safe ticket ingestion, expired-checkpoint recovery, per-connection locking, and fallback stale-connection discovery.
 
 ## Goal
 
@@ -967,11 +967,11 @@ Make onboarding repeatable beyond the first pilot.
 1. Environment and migration baseline - completed in M0
 2. Pub/Sub authenticated webhook - foundation completed in M1
 3. Gmail watch registration and daily renewal - foundation completed in M1
-4. Incremental history sync - next in M2
-5. Idempotency and per-connection locking
-6. Fallback sync and expired-history recovery
-7. Sync status UI
-8. Automatic triage queue
+4. Incremental history sync - completed in M2
+5. Idempotency and per-connection locking - completed in M2
+6. Fallback sync and expired-history recovery - completed in M2
+7. Sync status UI - backend status endpoints completed in M2; UI polish remains
+8. Automatic triage queue - next in M3
 9. Core lifecycle and approval consistency
 10. Worker retries and failed-job visibility
 11. Security tests and secret rotation

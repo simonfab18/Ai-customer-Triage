@@ -6,12 +6,12 @@ from typing import Any
 from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import DbSession
 from app.models.gmail_connection import GmailConnection
 from app.models.gmail_sync_event import GmailSyncEvent
 from app.schemas.gmail import GmailWebhookAcceptedRead
+from app.services.job_queue_service import enqueue_gmail_history_sync
 from app.services.pubsub_verification_service import verify_pubsub_oidc_token
 
 router = APIRouter(tags=["webhooks"])
@@ -59,6 +59,10 @@ def google_gmail_webhook(
     if not email_address or not history_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Gmail notification payload is incomplete")
 
+    existing_event = db.scalar(select(GmailSyncEvent).where(GmailSyncEvent.pubsub_message_id == message_id))
+    if existing_event is not None:
+        return GmailWebhookAcceptedRead(status="accepted")
+
     connection = db.scalar(
         select(GmailConnection).where(
             GmailConnection.gmail_email == email_address,
@@ -68,26 +72,19 @@ def google_gmail_webhook(
     if connection is None:
         return GmailWebhookAcceptedRead(status="accepted")
 
-    now = datetime.now(UTC)
-    connection.last_notification_at = now
-    event = GmailSyncEvent(
-        organization_id=connection.organization_id,
-        gmail_connection_id=connection.id,
+    connection.last_notification_at = datetime.now(UTC)
+    db.commit()
+    enqueue_gmail_history_sync(
+        db,
+        connection.organization_id,
+        connection.id,
         trigger_type="pubsub_notification",
-        status="received",
         pubsub_message_id=message_id,
         notification_history_id=history_id,
-        sync_metadata={
+        metadata={
             "gmail_email": email_address,
             "subscription": envelope.subscription,
-            "delivery": "acknowledged_without_history_processing",
+            "delivery": "queued_history_sync",
         },
-        started_at=now,
-        completed_at=now,
     )
-    db.add(event)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
     return GmailWebhookAcceptedRead(status="accepted")

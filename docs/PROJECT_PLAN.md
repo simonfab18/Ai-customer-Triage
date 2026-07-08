@@ -4,7 +4,7 @@
 
 The project is past the initial MVP foundation. The app now has a Next.js frontend, FastAPI backend, Supabase-backed PostgreSQL database, Supabase Auth, Gmail OAuth, Gmail import, AI triage with Gemini, reply approvals, Gmail draft creation, dashboard views, role-aware navigation, and local development servers.
 
-The live Gmail sync foundation is now implemented. The next major product improvement is M2: incremental Gmail history sync and recovery, which will turn authenticated Gmail push notifications into duplicate-safe ticket ingestion.
+Incremental Gmail history sync and recovery is now implemented locally. The next major product improvement is M3: automatic triage pipeline, which will triage newly created tickets without manual action.
 
 ## Completed Milestones
 
@@ -95,7 +95,17 @@ The live Gmail sync foundation is now implemented. The next major product improv
 - Added `gmail_sync_events` for watch registration, renewal, and Pub/Sub notification records.
 - Added authenticated Pub/Sub webhook foundation at `POST /v1/webhooks/google/gmail`.
 - Documented Google Cloud Pub/Sub project, topic, subscription, push endpoint, and service-account settings.
-- Confirmed M1 stops at authenticated notification receipt; history-based ticket ingestion remains M2.
+- Confirmed M1 stopped at authenticated notification receipt; history-based ticket ingestion was completed in M2.
+
+### Production M2: Incremental Sync and Recovery
+
+- Added Gmail history-list processing from stored checkpoints.
+- Added duplicate-safe ticket creation for new `messagesAdded` notifications.
+- Added per-connection sync locks to avoid concurrent duplicate processing.
+- Added Pub/Sub webhook job enqueue and duplicate delivery handling.
+- Added expired-checkpoint reconciliation with watch re-registration.
+- Added stale-connection fallback sync discovery.
+- Added owner/admin sync status and manual history-sync queue endpoints.
 
 ### Product UI Pass
 
@@ -105,56 +115,42 @@ The live Gmail sync foundation is now implemented. The next major product improv
 - Added responsive layout direction.
 - Added reusable product UI components for badges, cards, queue rows, and app navigation.
 
-## Next Recommended Milestone: M2 Incremental Sync and Recovery
+## Next Recommended Milestone: M3 Automatic Triage Pipeline
 
 ### Goal
 
-Authenticated Gmail push notifications should trigger duplicate-safe Gmail history processing, create tickets for new matching messages, and recover safely from missed or expired checkpoints.
+Newly created tickets should automatically receive AI triage, while duplicate imports and retry attempts remain idempotent and visible.
 
 ### Recommended Production Design
 
-- Keep the manual import button as a fallback.
-- Add Gmail Push Notifications through Google Cloud Pub/Sub.
-- Store Gmail `historyId` per Gmail connection.
-- Use `history.list` to import only new mailbox changes.
-- Add a scheduled fallback sync because push notifications can be delayed or dropped.
-- Renew Gmail watches daily because Gmail watches expire.
+- Queue triage after the ticket transaction commits.
+- Track one active triage job per ticket and prompt/schema version.
+- Preserve manual retry for failed triage.
+- Store AI result versions so prompt changes are auditable.
+- Keep newly imported tickets visible even if triage is delayed or fails.
 
 ### Backend Work
 
-- Add Gmail watch registration after connection.
-- Add Pub/Sub webhook endpoint.
-- Add job for processing Gmail notifications.
-- Add history-based incremental import.
-- Add scheduled watch renewal.
-- Add scheduled fallback sync.
+- Add automatic triage enqueue after ticket creation.
+- Add idempotent triage job state.
+- Add retry behavior for transient AI failures.
+- Add manual retry endpoint for owners/admins or permitted agents.
 
 ### Database Work
 
-Add or extend Gmail connection tracking fields:
+Add or extend triage tracking fields:
 
-- `gmail_history_id`
-- `watch_expires_at`
-- `last_sync_at`
-- `sync_status`
-- `sync_error`
-
-Optionally add a table for sync events:
-
-- `gmail_sync_events`
-- `organization_id`
-- `gmail_connection_id`
-- `event_type`
-- `status`
-- `metadata`
-- `created_at`
+- ticket triage status
+- active triage job identifier
+- prompt/schema version
+- last triage error
+- retry metadata
 
 ### Frontend Work
 
-- Show "Live sync active" on Integrations.
-- Show "Last synced" beside inbox controls.
-- Add a manual "Sync inbox" button.
-- Show sync errors in a friendly way.
+- Show triage pending, failed, and retryable states.
+- Keep existing ticket detail AI sections stable while jobs run.
+- Make manual retry available where the user has permission.
 
 ## Later Milestones
 

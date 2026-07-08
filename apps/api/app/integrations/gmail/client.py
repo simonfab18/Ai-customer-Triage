@@ -1,4 +1,4 @@
-﻿from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -9,6 +9,9 @@ from app.core.config import settings
 GMAIL_API_BASE_URL = "https://gmail.googleapis.com/gmail/v1"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
+
+class GmailHistoryExpiredError(Exception):
+    """Raised when Gmail history checkpoint is too old or invalid."""
 
 def gmail_expiration_from_millis(value: str | int | None) -> datetime | None:
     if value is None:
@@ -111,6 +114,37 @@ async def list_gmail_message_ids(
 
     return [message["id"] for message in response.json().get("messages", [])]
 
+async def list_gmail_history(
+    access_token: str,
+    start_history_id: str,
+    page_token: str | None = None,
+) -> dict[str, Any]:
+    params: dict[str, Any] = {
+        "startHistoryId": start_history_id,
+        "historyTypes": "messageAdded",
+    }
+    if page_token:
+        params["pageToken"] = page_token
+
+    try:
+        async with httpx.AsyncClient(timeout=20, trust_env=False) as client:
+            response = await client.get(
+                f"{GMAIL_API_BASE_URL}/users/me/history",
+                params=params,
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not reach Gmail history endpoint from the API server",
+        ) from exc
+
+    if response.status_code == 404:
+        raise GmailHistoryExpiredError("Gmail history checkpoint is expired or invalid")
+    if response.status_code >= 400:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Gmail history list failed")
+
+    return response.json()
 
 async def get_gmail_message(access_token: str, message_id: str) -> dict[str, Any]:
     try:

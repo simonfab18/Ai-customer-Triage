@@ -1,4 +1,4 @@
-﻿from datetime import UTC, datetime
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -91,6 +91,20 @@ def _create_ticket_from_gmail(
     return ticket
 
 
+def import_gmail_message_if_new(
+    db: Session,
+    organization_id: str,
+    connection_id: str,
+    actor: AuthenticatedUser,
+    normalized: NormalizedGmailMessage,
+) -> tuple[Ticket | None, bool]:
+    if not normalized.gmail_message_id:
+        return None, False
+    if _ticket_exists(db, organization_id, normalized.gmail_message_id):
+        return None, False
+    ticket = _create_ticket_from_gmail(db, organization_id, connection_id, actor, normalized)
+    return ticket, True
+
 def create_gmail_import_job(
     db: Session,
     organization_id: str,
@@ -170,11 +184,11 @@ async def run_gmail_import_job(
             if not normalized.gmail_message_id:
                 skipped_count += 1
                 continue
-            if _ticket_exists(db, organization_id, normalized.gmail_message_id):
+            _, created = import_gmail_message_if_new(db, organization_id, connection_id, actor, normalized)
+            if created:
+                imported_count += 1
+            else:
                 skipped_count += 1
-                continue
-            _create_ticket_from_gmail(db, organization_id, connection_id, actor, normalized)
-            imported_count += 1
 
         connection.last_sync_at = datetime.now(UTC)
         job.status = JobRunStatus.SUCCEEDED.value

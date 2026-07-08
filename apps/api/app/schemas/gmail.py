@@ -1,4 +1,4 @@
-﻿from datetime import datetime
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
@@ -38,6 +38,7 @@ class GmailConnectionRead(BaseModel):
     watch_status: str
     watch_error: str | None = None
     disconnected_at: datetime | None = None
+    sync_lock_expires_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -72,6 +73,13 @@ class GmailWatchActionRead(BaseModel):
     connection: GmailConnectionRead
     event: GmailSyncEventRead
 
+class GmailSyncStatusRead(BaseModel):
+    connection: GmailConnectionRead
+    recent_events: list[GmailSyncEventRead]
+
+
+class GmailHistorySyncQueueRead(BaseModel):
+    event: GmailSyncEventRead
 
 class MailImportRuleRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)

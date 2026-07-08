@@ -1,4 +1,4 @@
-﻿import base64
+import base64
 import json
 
 from fastapi import HTTPException, status
@@ -27,7 +27,6 @@ def test_pubsub_webhook_rejects_invalid_identity(client: TestClient, monkeypatch
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unexpected Pub/Sub service account")
 
     monkeypatch.setattr("app.api.routes.webhooks.verify_pubsub_oidc_token", fake_verify)
-
     response = client.post(
         "/v1/webhooks/google/gmail",
         headers={"Authorization": "Bearer bad-token"},
@@ -60,6 +59,8 @@ def test_pubsub_webhook_records_valid_notification(client: TestClient, create_or
         return {"email": "pub-sub-push-invoker@customer-support-triage-501408.iam.gserviceaccount.com"}
 
     monkeypatch.setattr("app.api.routes.webhooks.verify_pubsub_oidc_token", fake_verify)
+    queued = []
+    monkeypatch.setattr("app.services.job_queue_service.history_sync_gmail_connection_task.delay", lambda *args: queued.append(args))
 
     response = client.post(
         "/v1/webhooks/google/gmail",
@@ -80,9 +81,10 @@ def test_pubsub_webhook_records_valid_notification(client: TestClient, create_or
         event = db.scalar(select(GmailSyncEvent).where(GmailSyncEvent.pubsub_message_id == "pubsub-1"))
         assert connection.last_notification_at is not None
         assert event is not None
-        assert event.status == "received"
+        assert event.status == "queued"
         assert event.notification_history_id == "12345"
-        assert event.sync_metadata["delivery"] == "acknowledged_without_history_processing"
+        assert event.sync_metadata["delivery"] == "queued_history_sync"
+        assert queued and queued[0][0] == organization["id"]
 
 
 def test_pubsub_webhook_rejects_malformed_payload(client: TestClient, monkeypatch) -> None:
