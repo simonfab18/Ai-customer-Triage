@@ -19,5 +19,8 @@ class WorkspaceSettings(Base):
     default_reply_signature: Mapped[str] = mapped_column(Text, nullable=False, default="Best regards,\nCustomer Support Team")
     auto_triage_enabled: Mapped[bool] = mapped_column(default=True, nullable=False)
     draft_requires_approval: Mapped[bool] = mapped_column(default=True, nullable=False)
+    sync_enabled: Mapped[bool] = mapped_column(default=True, nullable=False)
+    draft_creation_enabled: Mapped[bool] = mapped_column(default=True, nullable=False)
+    pilot_feedback_contact: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)

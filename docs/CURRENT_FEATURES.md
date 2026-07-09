@@ -1,4 +1,4 @@
-﻿# Current Features
+# Current Features
 
 This file reflects the latest local MVP state.
 
@@ -178,6 +178,21 @@ Metrics are used by the overview and analytics UI.
 - Revoked Gmail refresh tokens move the connection into a recoverable `reauthorization_required` state.
 - Audit logs and structured logs redact token, secret, password, and authorization values.
 - Data-control procedures are documented in `docs/SECURITY_AND_DATA_CONTROLS.md`.
+
+## M7 Pilot Release Controls
+
+- Workspace settings now include pilot controls for Gmail sync, Gmail draft creation, and a pilot feedback/support contact.
+- Staging/production configuration supports an optional pilot organization allowlist.
+- Global kill switches can disable Gmail sync, automatic triage queueing, and Gmail draft creation without deleting organization data.
+- Gmail sync/import/history queue paths respect the sync switch.
+- Automatic triage queueing respects the auto-triage switch and leaves tickets in `not_queued` when disabled.
+- Gmail draft creation respects the draft-creation switch while preserving approved suggestions for later recovery.
+- A mocked backend release smoke test covers Gmail history sync, ticket creation, triage, approval, draft creation, resolve, audit, disconnect, reconnect, and fallback stale-connection detection.
+
+Current limitation:
+
+- Real M7 acceptance still requires a deployed staging environment with separate Supabase, Redis, Google OAuth, Pub/Sub, Gmail test inbox, worker, scheduler, Gemini, and error-tracking credentials.
+
 ## Local Development
 
 Current local links:
@@ -186,3 +201,5 @@ Current local links:
 - Backend health: `http://localhost:8001/health`
 
 Current local mode uses manual server processes. Docker is available for API, Redis, and worker testing, but it is not required for everyday frontend/backend debugging.
+
+

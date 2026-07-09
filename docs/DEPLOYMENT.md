@@ -94,6 +94,7 @@ A release candidate is ready for staging only after:
 - Backend and frontend container images build.
 - Docker Compose configuration validates.
 - Staging environment variables are confirmed separate from production.
+- Pilot allowlist and kill-switch variables are configured intentionally for the release candidate.
 
 ## Deployment order
 
@@ -143,6 +144,28 @@ Database rollback:
 - Use `OWNERS.md` to identify reviewers for critical modules.
 - Do not deploy directly from unreviewed local changes.
 
+
+## M7 Staging Verification
+
+Before pilot use, staging must use separate production-like resources for Supabase/Postgres, Redis, API, worker, scheduler, Google OAuth redirect, Pub/Sub topic/subscription, Gmail test inbox, Gemini, and error tracking.
+
+Pilot rollout controls:
+
+- Set `PILOT_REQUIRE_ALLOWLIST=true` for a closed pilot, then set `PILOT_ALLOWLISTED_ORGANIZATION_IDS` to the approved staging/pilot organization IDs.
+- Keep `PILOT_SYNC_ENABLED`, `PILOT_AUTO_TRIAGE_ENABLED`, and `PILOT_DRAFT_CREATION_ENABLED` available as deployment-level kill switches.
+- Confirm workspace-level sync and draft switches can disable risky actions without deleting Gmail connections, tickets, approvals, or drafts.
+
+Required staging verification:
+
+1. Run migrations against staging with `alembic upgrade head`.
+2. Deploy API and worker with `CELERY_TASK_ALWAYS_EAGER=false` and managed Redis.
+3. Confirm `/health/live`, `/health/ready`, and `/v1/status` report expected dependency status.
+4. Connect a test Gmail inbox, receive a test message, verify ticket creation, automatic triage, edit/approve, Gmail draft creation, resolve, audit log, disconnect, reconnect, and missed-notification fallback.
+5. Verify global kill switches for sync, automatic triage, and draft creation in staging.
+6. Confirm backup/restore and rollback procedures before connecting a real pilot inbox.
+
+The local mocked M7 release smoke test does not replace this deployed staging verification.
+
 ## Gmail Push Deployment Setup
 
 Before validating M1 in staging:
@@ -156,3 +179,5 @@ Before validating M1 in staging:
 7. Connect or reconnect Gmail; the OAuth callback should register a Gmail watch and store the returned `historyId` and expiration.
 
 M1 does not import Gmail history from notifications. A successful push notification should receive a fast `200` response and create a `gmail_sync_events` record for known active connections.
+
+

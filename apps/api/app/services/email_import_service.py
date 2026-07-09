@@ -1,4 +1,4 @@
-﻿from datetime import UTC, datetime
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -13,6 +13,7 @@ from app.models.mail_import_rule import MailImportRule
 from app.models.ticket import Ticket
 from app.services.gmail_token_service import refresh_connection_access_token
 from app.services.operations_service import ensure_job_defaults, mark_job_failed, mark_job_running, mark_job_succeeded
+from app.services.pilot_control_service import ensure_sync_enabled
 from app.services.rbac_service import require_membership
 from app.services.ticket_service import get_or_create_customer, write_ticket_event
 
@@ -116,6 +117,7 @@ def create_gmail_import_job(
     status_value: JobRunStatus = JobRunStatus.QUEUED,
 ) -> JobRun:
     require_membership(db, organization_id, actor)
+    ensure_sync_enabled(db, organization_id)
     _active_connection_or_404(db, organization_id, connection_id)
     rule = _import_rule_for_connection(db, organization_id, connection_id)
     if not rule.is_active:
@@ -152,6 +154,7 @@ async def run_gmail_import_job(
     max_results: int = 20,
 ) -> JobRun:
     require_membership(db, organization_id, actor)
+    ensure_sync_enabled(db, organization_id)
     connection = _active_connection_or_404(db, organization_id, connection_id)
     rule = _import_rule_for_connection(db, organization_id, connection_id)
     if not rule.is_active:

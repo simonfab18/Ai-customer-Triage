@@ -1,4 +1,4 @@
-﻿# Environment Configuration
+# Environment Configuration
 
 Use the checked-in `.env.example` files as templates only. Real secrets stay in local `.env` files or deployment secret stores.
 
@@ -127,6 +127,15 @@ M6 security and tenant-hardening settings:
 - `ENCRYPTION_KEY_VERSION`: metadata version recorded on newly stored Gmail refresh tokens.
 
 See `docs/SECURITY_AND_DATA_CONTROLS.md` for rotation, reauthorization, export, deletion, retention, and backup/restore procedures.
+M7 staging and pilot release settings:
+
+- `PILOT_REQUIRE_ALLOWLIST`: when true, pilot-gated organization actions require the organization ID to appear in `PILOT_ALLOWLISTED_ORGANIZATION_IDS`.
+- `PILOT_ALLOWLISTED_ORGANIZATION_IDS`: comma-separated organization IDs allowed to use pilot-gated production paths.
+- `PILOT_SYNC_ENABLED`: global kill switch for Gmail sync/import/history/watch behavior.
+- `PILOT_AUTO_TRIAGE_ENABLED`: global kill switch for automatic AI triage queueing.
+- `PILOT_DRAFT_CREATION_ENABLED`: global kill switch for Gmail draft creation.
+
+Workspace owners/admins can also disable sync and draft creation per workspace through workspace settings. Automatic triage can still be disabled per workspace through `auto_triage_enabled`.
 
 ## Migration validation
 
@@ -173,3 +182,4 @@ POST https://ai-customer-support-triage-response.onrender.com/v1/webhooks/google
 ```
 
 This milestone acknowledges authenticated Pub/Sub notifications and records a sync event. Gmail history processing and ticket ingestion from Pub/Sub notifications are intentionally left for M2.
+

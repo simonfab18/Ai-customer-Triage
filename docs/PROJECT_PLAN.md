@@ -1,10 +1,10 @@
-﻿# Project Plan
+# Project Plan
 
 ## Current Stage
 
 The project is past the initial MVP foundation. The app now has a Next.js frontend, FastAPI backend, Supabase-backed PostgreSQL database, Supabase Auth, Gmail OAuth, Gmail import, AI triage with Gemini, reply approvals, Gmail draft creation, dashboard views, role-aware navigation, and local development servers.
 
-Security and tenant hardening is now implemented locally. The next major production milestone is M7: staging and pilot release, which will prove the full Gmail-to-draft workflow against production-like infrastructure.
+M7 staging and pilot release is in progress locally. The repo now has pilot controls and a mocked backend release smoke suite, but M7 is not complete until the full Gmail-to-draft flow passes in a real production-like staging environment.
 
 ## Completed Milestones
 
@@ -147,6 +147,20 @@ Security and tenant hardening is now implemented locally. The next major product
 - Added Gmail token key-version metadata and recoverable `reauthorization_required` state for revoked refresh tokens.
 - Added redaction hardening for structured logs and operational errors.
 - Documented secret rotation, reauthorization, data export/deletion direction, retention, backup/restore, and attachment policy.
+### Production M7: Staging and Pilot Release
+
+Local implementation added:
+
+- Added global pilot rollout settings for organization allowlisting, Gmail sync, automatic triage queueing, and Gmail draft creation.
+- Added workspace-level controls for sync, draft creation, and pilot feedback/support contact.
+- Enforced pilot controls in OAuth start, Gmail import/sync/history queueing, watch registration/renewal, auto-triage queueing, and Gmail draft creation.
+- Added a mocked backend release smoke test for the Gmail-to-draft path, including disconnect, reconnect, audit, resolve, and stale fallback detection.
+
+Still required before M7 can be called complete:
+
+- Deploy API, worker, scheduler, Redis, database, frontend, Google OAuth, Pub/Sub, Gmail test inbox, Gemini, and error tracking in separate staging resources.
+- Run the complete release suite against deployed staging without local services.
+- Verify worker/scheduler behavior, alerts, backup/restore, rollback, and a staging soak test.
 ### Product UI Pass
 
 - Added modern SaaS-style landing page.
@@ -155,7 +169,7 @@ Security and tenant hardening is now implemented locally. The next major product
 - Added responsive layout direction.
 - Added reusable product UI components for badges, cards, queue rows, and app navigation.
 
-## Next Recommended Milestone: M7 Staging and Pilot Release
+## Current Production Milestone: M7 Staging and Pilot Release
 
 ### Goal
 
@@ -205,3 +219,4 @@ The complete Gmail-to-draft workflow should be proven in a production-like stagi
 - Confirm deployed CORS origins.
 - Confirm Render worker and Redis are running.
 - Run full end-to-end staging test.
+

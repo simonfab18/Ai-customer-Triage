@@ -1,4 +1,4 @@
-﻿from datetime import UTC, datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -18,6 +18,7 @@ from app.models.mail_import_rule import MailImportRule
 from app.models.member import MemberRole
 from app.services.audit_log_service import create_audit_log
 from app.services.gmail_token_service import refresh_connection_access_token
+from app.services.pilot_control_service import is_sync_enabled
 from app.services.rbac_service import require_role
 
 WATCH_LABEL_FALLBACK = "INBOX"
@@ -115,6 +116,25 @@ async def register_gmail_watch_for_connection(
 ) -> GmailSyncEvent:
     started_at = _utc_now()
     labels = _watch_labels_for_connection(db, connection)
+    if not is_sync_enabled(db, connection.organization_id):
+        connection.watch_status = "paused"
+        connection.sync_status = "paused"
+        event = _create_sync_event(
+            db,
+            organization_id=connection.organization_id,
+            connection_id=connection.id,
+            trigger_type=trigger_type,
+            event_status="skipped",
+            error_code="sync_disabled",
+            error_message="Gmail sync is disabled for this pilot workspace",
+            metadata={"label_ids": labels},
+            started_at=started_at,
+            completed_at=_utc_now(),
+        )
+        if commit:
+            db.commit()
+            db.refresh(event)
+        return event
 
     if not settings.google_pubsub_topic:
         connection.watch_status = "not_configured"
@@ -278,3 +298,4 @@ def mark_connection_disconnected_for_sync(connection: GmailConnection) -> None:
     connection.watch_status = "disconnected"
     connection.watch_error = None
     connection.disconnected_at = _utc_now()
+

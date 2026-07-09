@@ -1,4 +1,4 @@
-﻿services:
+services:
   - type: web
     name: ai-customer-support-triage-response-backend
     env: docker
@@ -43,6 +43,16 @@
         value: "1048576"
       - key: ENCRYPTION_KEY_VERSION
         value: "1"
+      - key: PILOT_REQUIRE_ALLOWLIST
+        value: "false"
+      - key: PILOT_ALLOWLISTED_ORGANIZATION_IDS
+        sync: false
+      - key: PILOT_SYNC_ENABLED
+        value: "true"
+      - key: PILOT_AUTO_TRIAGE_ENABLED
+        value: "true"
+      - key: PILOT_DRAFT_CREATION_ENABLED
+        value: "true"
       - key: ERROR_TRACKING_DSN
         sync: false
       - key: CELERY_TASK_ALWAYS_EAGER
@@ -136,6 +146,16 @@
         value: "1048576"
       - key: ENCRYPTION_KEY_VERSION
         value: "1"
+      - key: PILOT_REQUIRE_ALLOWLIST
+        value: "false"
+      - key: PILOT_ALLOWLISTED_ORGANIZATION_IDS
+        sync: false
+      - key: PILOT_SYNC_ENABLED
+        value: "true"
+      - key: PILOT_AUTO_TRIAGE_ENABLED
+        value: "true"
+      - key: PILOT_DRAFT_CREATION_ENABLED
+        value: "true"
       - key: ERROR_TRACKING_DSN
         sync: false
       - key: CELERY_TASK_ALWAYS_EAGER
@@ -189,3 +209,5 @@
   - type: redis
     name: support-triage-redis
     ipAllowList: []
+
+

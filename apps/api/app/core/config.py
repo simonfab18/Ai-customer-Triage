@@ -1,4 +1,4 @@
-﻿from pydantic import Field
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     rate_limit_sensitive_window_seconds: int = 60
     max_request_body_bytes: int = 1048576
     encryption_key_version: int = 1
+    pilot_allowlisted_organization_ids: str | None = None
+    pilot_require_allowlist: bool = False
+    pilot_sync_enabled: bool = True
+    pilot_auto_triage_enabled: bool = True
+    pilot_draft_creation_enabled: bool = True
     worker_concurrency: int = 2
     sync_fallback_interval_minutes: int = 15
     watch_renewal_schedule: str = "0 3 * * *"
@@ -59,6 +64,11 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.api_cors_origins.split(",") if origin.strip()]
+
+    @property
+    def pilot_allowlist(self) -> set[str]:
+        raw = self.pilot_allowlisted_organization_ids or ""
+        return {item.strip() for item in raw.split(",") if item.strip()}
 
     @property
     def normalized_app_env(self) -> str:
@@ -128,6 +138,9 @@ class Settings(BaseSettings):
             raise RuntimeError("API_CORS_ORIGINS must not contain '*' in staging or production.")
         if self.encryption_key == "dev-only-change-me":
             raise RuntimeError("ENCRYPTION_KEY must be replaced outside local development.")
+        if self.pilot_require_allowlist and not self.pilot_allowlist:
+            raise RuntimeError("PILOT_ALLOWLISTED_ORGANIZATION_IDS is required when PILOT_REQUIRE_ALLOWLIST is true.")
 
 
 settings = Settings()
+

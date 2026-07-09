@@ -1,4 +1,4 @@
-﻿from datetime import UTC, datetime
+from datetime import UTC, datetime
 from time import perf_counter
 
 from fastapi import HTTPException, status
@@ -14,6 +14,7 @@ from app.models.reply_approval import ReplyApproval
 from app.models.ticket import Ticket, TicketCategory, TicketPriority, TicketStatus, TicketTriageStatus
 from app.schemas.ai import TriageOutput
 from app.services.operations_service import ensure_job_defaults, mark_job_failed, mark_job_running, mark_job_succeeded
+from app.services.pilot_control_service import ensure_organization_pilot_allowed
 from app.services.reply_suggestion_service import create_ai_reply_suggestion_from_triage
 from app.services.ticket_service import get_ticket_or_404, write_ticket_event
 from app.services.ticket_lifecycle_service import transition_ticket_status
@@ -222,6 +223,7 @@ async def run_ticket_triage(
     ticket_id: str,
     actor: AuthenticatedUser,
 ) -> AITriageResult:
+    ensure_organization_pilot_allowed(organization_id)
     ticket = get_ticket_or_404(db, organization_id, ticket_id, actor)
     return await _execute_ticket_triage(db, ticket, actor)
 
@@ -254,3 +256,4 @@ def list_ticket_triage_results(
             .order_by(AITriageResult.created_at.desc())
         )
     )
+

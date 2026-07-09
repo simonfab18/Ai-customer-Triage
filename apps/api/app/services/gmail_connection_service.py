@@ -1,4 +1,4 @@
-﻿from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 
 from fastapi import HTTPException, status
@@ -21,6 +21,7 @@ from app.models.member import MemberRole
 from app.schemas.gmail import MailImportRuleUpdate
 from app.services.audit_log_service import create_audit_log
 from app.services.gmail_watch_service import mark_connection_disconnected_for_sync, register_gmail_watch_for_connection
+from app.services.pilot_control_service import ensure_organization_pilot_allowed
 from app.services.rbac_service import require_membership, require_role
 
 OAUTH_STATE_TTL_MINUTES = 10
@@ -28,6 +29,7 @@ OAUTH_STATE_TTL_MINUTES = 10
 
 def start_gmail_oauth(db: Session, organization_id: str, actor: AuthenticatedUser) -> tuple[str, str]:
     require_role(db, organization_id, actor, {MemberRole.OWNER, MemberRole.ADMIN})
+    ensure_organization_pilot_allowed(organization_id)
     state = token_urlsafe(32)
     db.add(
         GmailOAuthState(
@@ -221,3 +223,4 @@ def update_import_rule(
     db.commit()
     db.refresh(rule)
     return rule
+

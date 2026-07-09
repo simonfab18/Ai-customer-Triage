@@ -1,4 +1,4 @@
-﻿from fastapi import HTTPException, status
+from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -11,7 +11,7 @@ from app.services.ai_triage_service import PROMPT_VERSION, SCHEMA_VERSION
 from app.services.email_import_service import create_gmail_import_job
 from app.services.gmail_history_sync_service import create_history_sync_event, list_stale_connections
 from app.services.operations_service import mark_job_failed
-from app.services.workspace_settings_service import get_or_create_workspace_settings
+from app.services.pilot_control_service import ensure_auto_triage_enabled, ensure_sync_enabled, is_auto_triage_enabled
 from app.worker.tasks import history_sync_gmail_connection_task, sync_gmail_connection_task
 
 
@@ -22,6 +22,7 @@ def enqueue_gmail_import(
     actor: AuthenticatedUser,
     max_results: int = 20,
 ) -> JobRun:
+    ensure_sync_enabled(db, organization_id)
     job = create_gmail_import_job(db, organization_id, connection_id, actor, max_results=max_results)
     try:
         sync_gmail_connection_task.delay(
@@ -58,11 +59,12 @@ def enqueue_ticket_triage(
     if ticket is None or ticket.organization_id != organization_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
 
-    settings = get_or_create_workspace_settings(db, organization_id)
-    if respect_workspace_setting and not settings.auto_triage_enabled:
+    if respect_workspace_setting and not is_auto_triage_enabled(db, organization_id):
         ticket.triage_status = TicketTriageStatus.NOT_QUEUED.value
         db.commit()
         return None
+    if not respect_workspace_setting:
+        ensure_auto_triage_enabled(db, organization_id)
 
     if not force and ticket.active_triage_job_id:
         active_job = db.get(JobRun, ticket.active_triage_job_id)
@@ -139,6 +141,7 @@ def enqueue_gmail_history_sync(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gmail connection not found")
     if connection.status != "active":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Gmail connection is not active")
+    ensure_sync_enabled(db, organization_id)
 
     event = create_history_sync_event(
         db,
@@ -174,12 +177,17 @@ def enqueue_gmail_history_sync(
 def enqueue_fallback_syncs(db: Session) -> list[GmailSyncEvent]:
     events: list[GmailSyncEvent] = []
     for connection in list_stale_connections(db):
-        event = enqueue_gmail_history_sync(
-            db,
-            connection.organization_id,
-            connection.id,
-            trigger_type="fallback_sync",
-            metadata={"reason": "stale_connection_scan"},
-        )
+        try:
+            event = enqueue_gmail_history_sync(
+                db,
+                connection.organization_id,
+                connection.id,
+                trigger_type="fallback_sync",
+                metadata={"reason": "stale_connection_scan"},
+            )
+        except HTTPException as exc:
+            if exc.status_code == status.HTTP_403_FORBIDDEN:
+                continue
+            raise
         events.append(event)
     return events

@@ -1,4 +1,4 @@
-﻿import base64
+import base64
 from datetime import UTC, datetime
 from email.message import EmailMessage
 
@@ -20,6 +20,7 @@ from app.models.ticket import TicketStatus
 from app.schemas.reply_suggestion import ReplySuggestionCreate, ReplySuggestionUpdate
 from app.services.audit_log_service import create_audit_log
 from app.services.gmail_token_service import refresh_connection_access_token
+from app.services.pilot_control_service import ensure_draft_creation_enabled
 from app.services.ticket_service import get_ticket_or_404, write_ticket_event
 from app.services.ticket_lifecycle_service import ensure_ticket_allows_draft, transition_ticket_status
 
@@ -165,6 +166,7 @@ async def create_gmail_draft_from_reply_suggestion(
 ) -> tuple[ReplySuggestion, GmailDraft]:
     suggestion = get_reply_suggestion_or_404(db, organization_id, suggestion_id)
     ticket = get_ticket_or_404(db, organization_id, suggestion.ticket_id, actor)
+    ensure_draft_creation_enabled(db, organization_id)
     existing_draft = db.scalar(
         select(GmailDraft).where(GmailDraft.organization_id == organization_id, GmailDraft.ticket_id == ticket.id)
     )
@@ -278,3 +280,4 @@ def get_reply_suggestion_or_404(db: Session, organization_id: str, suggestion_id
     if suggestion is None or suggestion.organization_id != organization_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reply suggestion not found")
     return suggestion
+
