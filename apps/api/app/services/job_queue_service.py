@@ -12,7 +12,7 @@ from app.services.email_import_service import create_gmail_import_job
 from app.services.gmail_history_sync_service import create_history_sync_event, list_stale_connections
 from app.services.operations_service import mark_job_failed
 from app.services.pilot_control_service import ensure_auto_triage_enabled, ensure_sync_enabled, is_auto_triage_enabled
-from app.worker.tasks import history_sync_gmail_connection_task, sync_gmail_connection_task
+from app.worker.tasks import history_sync_gmail_connection_task, renew_gmail_watch_task, sync_gmail_connection_task
 
 
 def enqueue_gmail_import(
@@ -191,3 +191,22 @@ def enqueue_fallback_syncs(db: Session) -> list[GmailSyncEvent]:
             raise
         events.append(event)
     return events
+
+def enqueue_due_watch_renewals(db: Session) -> list[str]:
+    from datetime import UTC, datetime, timedelta
+
+    from app.models.gmail_connection import GmailConnection
+
+    renewal_cutoff = datetime.now(UTC) + timedelta(days=1)
+    connection_ids: list[str] = []
+    connections = db.scalars(
+        select(GmailConnection).where(
+            GmailConnection.status == "active",
+            GmailConnection.watch_status.in_(["active", "error"]),
+            (GmailConnection.watch_expires_at.is_(None) | (GmailConnection.watch_expires_at <= renewal_cutoff)),
+        )
+    )
+    for connection in connections:
+        renew_gmail_watch_task.delay(connection.organization_id, connection.id)
+        connection_ids.append(connection.id)
+    return connection_ids

@@ -1,4 +1,4 @@
-﻿from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -124,3 +124,44 @@ def test_revoke_connection_marks_sync_disconnected(client: TestClient, create_or
         assert connection.sync_status == "disconnected"
         assert connection.watch_status == "disconnected"
         assert connection.disconnected_at is not None
+
+def test_enqueue_due_watch_renewals_queues_expiring_active_connections(client: TestClient, create_org, monkeypatch) -> None:
+    from app.services.job_queue_service import enqueue_due_watch_renewals
+
+    organization = create_org()
+    queued: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        "app.services.job_queue_service.renew_gmail_watch_task.delay",
+        lambda organization_id, connection_id: queued.append((organization_id, connection_id)),
+    )
+
+    with client.session_factory() as db:
+        due_connection = GmailConnection(
+            organization_id=organization["id"],
+            connected_by_user_id="user-owner",
+            gmail_email="due@example.com",
+            google_account_id="google-due",
+            encrypted_refresh_token="encrypted-refresh-token",
+            scopes="openid email https://www.googleapis.com/auth/gmail.modify",
+            status="active",
+            watch_status="active",
+            watch_expires_at=datetime.now(UTC) + timedelta(hours=2),
+        )
+        later_connection = GmailConnection(
+            organization_id=organization["id"],
+            connected_by_user_id="user-owner",
+            gmail_email="later@example.com",
+            google_account_id="google-later",
+            encrypted_refresh_token="encrypted-refresh-token",
+            scopes="openid email https://www.googleapis.com/auth/gmail.modify",
+            status="active",
+            watch_status="active",
+            watch_expires_at=datetime.now(UTC) + timedelta(days=3),
+        )
+        db.add_all([due_connection, later_connection])
+        db.commit()
+
+        queued_ids = enqueue_due_watch_renewals(db)
+
+    assert queued_ids == [due_connection.id]
+    assert queued == [(organization["id"], due_connection.id)]
